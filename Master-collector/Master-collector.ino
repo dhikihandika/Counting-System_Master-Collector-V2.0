@@ -45,6 +45,14 @@ unsigned long previousMillis = 0;
 int year, month, day, hour, minute, second; 
 String stringyear, stringmonth, stringday, stringhour, stringminute, stringsecond;
 
+/* variable incoming serverLastData */
+uint32_t serverLastData_S1 = 0;
+uint32_t serverLastData_S2 = 0;
+
+/* variable last incoming data */
+uint32_t lastData_S1 = 0;
+uint32_t lastData_S2 = 0;
+
 /* variable incoming data (current data) */
 uint32_t data_S1 = 0;
 uint32_t data_S2 = 0;
@@ -73,7 +81,8 @@ bool prefix_A = false;
 bool prefix_B = false;
 
 /* variable check boolean to identify subscribe */
-bool timesubscribe = false;
+bool timeSubscribe = false;
+bool replySubscribe = false;
 
 
 //==========================================================================================================================================//
@@ -103,6 +112,7 @@ void reconnect(){
       #endif
 
       client.publish("PSI/countingbenang/datacollector/startcontroller", buffermessage);
+
       if (client.publish("PSI/countingbenang/datacollector/startcontroller", buffermessage) == true){
         #ifdef DEBUG
         Serial.println("Succes sending message");
@@ -183,6 +193,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
 
   /* error correction */
   if(client.publish("PSI/countingbenang/datacollector/reportdata", JSONmessageBuffer) == true){
+    lastData_S1 = (data_S1 + serverLastData_S1) - (1 + serverLastData_S1);
     #ifdef DEBUG
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
     #endif
@@ -230,10 +241,12 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
   Serial.println(JSONmessageBuffer);                                                    // line debugging
   #endif
 
+ 
   client.publish("PSI/countingbenang/datacollector/reportdata", JSONmessageBuffer);     // publish payload to broker <=> client.publish(topic, payload);
 
   /* error correction */
   if(client.publish("PSI/countingbenang/datacollector/reportdata", JSONmessageBuffer) == true){
+    lastData_S2 = (data_S2 + serverLastData_S2) - (1 + serverLastData_S2);
     #ifdef DEBUG
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
     #endif
@@ -267,6 +280,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.println();
   Serial.println("-----------------------");
   #endif
+
   // Parse object JSON from subscribe data timestamp
   JsonObject& root = jsonBuffer.parseObject(inData); 
   String time = root["current_time"];
@@ -278,18 +292,33 @@ void callback(char* topic, byte* payload, unsigned int length) {
   #endif
 
   if(statusTime == 1){
-    timesubscribe = true;
+    timeSubscribe = true;
     status_S1 = 0;
     status_S2 = 0;
   }
   
-  // Parse timestamp value
+  /* Parse timestamp value */
   year = time.substring(1,5).toInt();
   month = time.substring(6,8).toInt();
   day = time.substring(9,11).toInt();
   hour = time.substring(12,14).toInt();
   minute = time.substring(15,17).toInt();
-}
+
+  // Parse object JSON from subscribe data flagreply
+  serverLastData_S1 = root["MAC01"]; 
+  serverLastData_S2 = root["MAC01"]; 
+  int statusReply = root["flagreply"]; 
+
+  #ifdef DEBUG
+  Serial.print("serverLastData_MAC01="); Serial.println(serverLastData_S1);
+  Serial.print("serverLastData_MAC02="); Serial.println(serverLastData_S2);
+  Serial.print("status flagreply= "); Serial.println(statusReply);
+  #endif // DEBUG
+
+  if(statusReply == 1){
+    replySubscribe = true;
+  }
+} 
 
 
 //==========================================================================================================================================//
@@ -327,10 +356,6 @@ void showData(){
   int diffData_S1 = 0;
   int diffData_S2 = 0;
 
-  /* variable last incoming data */
-  uint32_t lastData_S1 = 0;
-  uint32_t lastData_S2 = 0;
-
   /* Show data for sensor 1 */
   if(prefix_A){
     if(stringComplete){
@@ -356,15 +381,22 @@ void showData(){
       incomingData = "";
 
       //Processing Data
-      lastData_S1 = data_S1 - 1;
-      diffData_S1 = data_S1 - lastData_S1;
+      diffData_S1 = (data_S1 + serverLastData_S1) - (lastData_S1 + serverLastData_S1);
       if(diffData_S1<0){
         countData_S1 = diffData_S1 + limitData; 
       } else {
         countData_S1 = diffData_S1;
       }
 
-      publishData_S1();
+      // Publish Data
+      if(replySubscribe){
+         publishData_S1();
+         replySubscribe = false;
+      } else {
+        #ifdef DEBUG
+        Serial.println("Not reply anyone data !!!");
+        #endif // DEBUG
+      } 
 
       #ifdef DEBUG
       Serial.print("data S1= ");Serial.print(data_S1); 
@@ -399,15 +431,22 @@ void showData(){
       incomingData = "";
 
       // Processing Data
-      lastData_S2 = data_S2 - 1;
-      diffData_S2 = data_S2 - lastData_S2;
+      diffData_S2 = (data_S2 + serverLastData_S2) - (lastData_S2 + serverLastData_S2);
       if(diffData_S2<0){
         countData_S2 = diffData_S2 + limitData; 
       } else {
         countData_S2 = diffData_S2;
       }
 
-      publishData_S2();
+      // Publish Data
+      if(replySubscribe){
+         publishData_S2();
+         replySubscribe = false;
+      } else {
+        #ifdef DEBUG
+        Serial.println("Not reply anyone data !!!");
+        #endif // DEBUG
+      } 
 
       #ifdef DEBUG
       Serial.print("data_S2= ");Serial.print(data_S2); 
@@ -493,9 +532,9 @@ void RTCprint(){
 //=============================================|   Procedure Sync data and time RTC with Server   |=========================================//                                         
 //==========================================================================================================================================//
 void syncDataTimeRTC(){
-  if(timesubscribe == true){
+  if(timeSubscribe == true){
     RTC.adjust(DateTime(year, month, day, hour, minute));
-    timesubscribe = false;
+    timeSubscribe = false;
   }
 }
 
@@ -526,7 +565,7 @@ void setup(){
     reconnect();
     
     client.subscribe("PSI/countingbenang/server/infotimestamp");    //topic get data timestamp from server
-    client.subscribe("PSI/countingbenang/tablet/setreset");    //topic get reset from server
+    client.subscribe("PSI/countingbenang/server/replystart");    //topic get reset from server
     /* reserve 200 bytes for the incomingData*/
     incomingData.reserve(200);
 }
