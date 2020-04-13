@@ -15,11 +15,13 @@ Date    : 18/03/2020
 
 #define DEBUG
 
+#define limitData 60000                             // limit countData
 #define timer1 5000                                 // timer send command to sensor module 1
 #define timer2 10000                                // timer send command to sensor module 2
 
 #define COM1 32                                     // define LED communication slave1
 #define COM2 33                                     // define LED communication slave2 
+
 
 RTC_DS1307 RTC;                                     // Define type RTC as RTC_DS1307 (must be suitable with hardware RTC will be used)
 
@@ -43,9 +45,13 @@ unsigned long previousMillis = 0;
 int year, month, day, hour, minute, second; 
 String stringyear, stringmonth, stringday, stringhour, stringminute, stringsecond;
 
-/* variable incoming data */
+/* variable incoming data (current data) */
 uint32_t data_S1 = 0;
 uint32_t data_S2 = 0;
+
+/* variable data publish */
+uint32_t countData_S1 = 0;
+uint32_t countData_S2 = 0;
 
 /* variable status sensor */
 int status_S1 = 0;
@@ -130,10 +136,10 @@ void reconnect(){
 void publishData_S1(){
   #ifdef DEBUG
   Serial.print("Publish data S1= ");
-  Serial.println(data_S1);                                                                // line debugging
+  Serial.println(data_S1);                                                              // line debugging
   #endif
 
-  RTCprint();
+  RTCprint();                                                                           // Call procedure sync time RTC
 
 /* ArduinoJson create jsonDoc 
 Must be know its have a different function 
@@ -147,23 +153,23 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
 
   /* Encode object in jsonBuffer */
   JSONencoder["id_controller"] = "CTR01";                                               // key/object its = id_controller
-  JSONencoder["id_machine"] = "id_machine1";                                              // key/object its = id_machine
+  JSONencoder["id_machine"] = "id_machine1";                                            // key/object its = id_machine
   JSONencoder["clock"] = stringyear +"-"+stringmonth+"-"+stringday+" "+stringhour+":"+stringminute+":"+stringsecond;
-  JSONencoder["count"] = data_S1;                                                       // key/object its = count
+  JSONencoder["count"] = countData_S1;                                                  // key/object its = count
   JSONencoder["status"] = status_S1;                                                    // key/object its = status
-  JSONencoder["temp_data"] = 100;                                                       // key/object its = temp_data
+  JSONencoder["temp_data"] = data_S1;                                                   // key/object its = temp_data
   JSONencoder["flagsensor"] = 1;                                                        // key/object its = limit
 
   /* when use dummy data publish */
-  // JSONencoder["id_controller"] = "CTR01";                                               // key/object its = id_controller
-  // JSONencoder["id_machine"] = "MAC01_01";                                              // key/object its = id_machine
+  // JSONencoder["id_controller"] = "CTR01";                                            // key/object its = id_controller
+  // JSONencoder["id_machine"] = "MAC01_01";                                            // key/object its = id_machine
   // JSONencoder["date"] = "2020-02-02";
   // JSONencoder["clock"] = "02:02";
   // JSONencoder["time"] = "2020-02-02 02:02";
-  // JSONencoder["count"] = 12;                                                    // key/object its = count
-  // JSONencoder["length"] = 602.88;                                                        // key/object its = length for debbuging
-  // JSONencoder["status"] = 0;                                                            // key/object its = status
-  // JSONencoder["flagsensor"] = 1;                                                            // key/object its = limit
+  // JSONencoder["count"] = 12;                                                         // key/object its = count
+  // JSONencoder["length"] = 602.88;                                                    // key/object its = length for debbuging
+  // JSONencoder["status"] = 0;                                                         // key/object its = status
+  // JSONencoder["flagsensor"] = 1;                                                     // key/object its = limit
 
   char JSONmessageBuffer[500];                                                          // array of char JSONmessageBuffer is 500
   JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));                    // “minified” a JSON document
@@ -192,10 +198,10 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
 void publishData_S2(){
   #ifdef DEBUG
   Serial.print("Publish data S2= ");
-  Serial.println(data_S2);                                                                // line debugging
+  Serial.println(data_S2);                                                              // line debugging
   #endif
 
-  RTCprint();
+  RTCprint();                                                                           // Call procedure sync time RTC
 
 /* ArduinoJson create jsonDoc 
 Must be know its have a different function 
@@ -211,9 +217,9 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
   JSONencoder["id_controller"] = "CTR01";                                               // key/object its = id_controller
   JSONencoder["id_machine"] = "id_machine1";                                              // key/object its = id_machine
   JSONencoder["clock"] = stringyear +"-"+stringmonth+"-"+stringday+" "+stringhour+":"+stringminute+":"+stringsecond;
-  JSONencoder["count"] = data_S2;                                                       // key/object its = count
+  JSONencoder["count"] = countData_S2;                                                       // key/object its = count
   JSONencoder["status"] = status_S2;                                                    // key/object its = status
-  JSONencoder["temp_data"] = 100;                                                       // key/object its = temp_data
+  JSONencoder["temp_data"] = data_S2;                                                       // key/object its = temp_data
   JSONencoder["flagsensor"] = 1;                                                        // key/object its = limit
 
   char JSONmessageBuffer[500];                                                          // array of char JSONmessageBuffer is 500
@@ -317,6 +323,14 @@ void sendCommand(){
 //======================================================|   Procedure to showDaota    |=====================================================//                                         
 //==========================================================================================================================================//
 void showData(){
+  /* variable diff data */
+  int diffData_S1 = 0;
+  int diffData_S2 = 0;
+
+  /* variable last incoming data */
+  uint32_t lastData_S1 = 0;
+  uint32_t lastData_S2 = 0;
+
   /* Show data for sensor 1 */
   if(prefix_A){
     if(stringComplete){
@@ -340,6 +354,15 @@ void showData(){
       stringComplete = false;
       prefix_A = false;
       incomingData = "";
+
+      //Processing Data
+      lastData_S1 = data_S1 - 1;
+      diffData_S1 = data_S1 - lastData_S1;
+      if(diffData_S1<0){
+        countData_S1 = diffData_S1 + limitData; 
+      } else {
+        countData_S1 = diffData_S1;
+      }
 
       publishData_S1();
 
@@ -374,6 +397,15 @@ void showData(){
       stringComplete = false;
       prefix_B = false;
       incomingData = "";
+
+      // Processing Data
+      lastData_S2 = data_S2 - 1;
+      diffData_S2 = data_S2 - lastData_S2;
+      if(diffData_S2<0){
+        countData_S2 = diffData_S2 + limitData; 
+      } else {
+        countData_S2 = diffData_S2;
+      }
 
       publishData_S2();
 
