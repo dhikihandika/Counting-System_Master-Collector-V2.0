@@ -19,6 +19,8 @@ Date    : 18/03/2020
 #define timer1 5000                                 // timer send command to sensor module 1
 #define timer2 10000                                // timer send command to sensor module 2
 
+#define EMG_BUTTON 2                                // define Emergency Button 
+#define EMG_LED 3
 #define COM1 32                                     // define LED communication slave1
 #define COM2 33                                     // define LED communication slave2 
 
@@ -27,8 +29,8 @@ RTC_DS1307 RTC;                                     // Define type RTC as RTC_DS
 
 /* configur etheret communication */
 byte mac[]  = {0xDE, 0xED, 0xBA, 0xFE, 0xFE, 0xED };                // MAC Address by see sticker on Arduino Etherent Shield or self determine
-IPAddress ip(192, 168, 0, 120);                                     // IP ethernet shield assigned, in one class over the server
-IPAddress server(192, 168, 0, 108);                                 // IP LAN (Set ststic IP in PC/Server)
+IPAddress ip(192, 168, 12, 120);                                     // IP ethernet shield assigned, in one class over the server
+IPAddress server(192, 168, 12, 12);                                 // IP LAN (Set ststic IP in PC/Server)
 // IPAddress ip(192, 168, 50, 8);                                     // IP ethernet shield assigned, in one class over the server
 // IPAddress server(192, 168, 50, 7);                                 // IP LAN (Set ststic IP in PC/Server)
 int portServer = 1883;                                              // Determine portServer MQTT connection
@@ -83,7 +85,9 @@ bool prefix_B = false;
 /* variable check boolean to identify subscribe */
 bool timeSubscribe = false;
 bool replySubscribe = false;
+bool trig_publishFlagRestart = false;
 
+int statusReply = 0;
 
 //==========================================================================================================================================//
 //=========================================================|   Procedure reconnect    |=====================================================//                                         
@@ -139,9 +143,9 @@ void reconnect(){
 }
 
 
-// //==========================================================================================================================================//
-// //============================================|   Procedure publish data to app server  |===================================================//                                         
-// //==========================================================================================================================================//
+//==========================================================================================================================================//
+//============================================|   Procedure publish data to app server  |===================================================//                                         
+//==========================================================================================================================================//
 /* publish data sensor 1 */
 void publishData_S1(){
   #ifdef DEBUG
@@ -259,10 +263,56 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
 
 
 //==========================================================================================================================================//
+//==================================================|   Procedure publish Flag Restart  |===================================================//                                         
+//==========================================================================================================================================//
+/* publish data sensor 1 */
+void publishFlagRestart(){
+  #ifdef DEBUG
+  Serial.println("Publish FlagRestart !!!");
+  #endif
+
+/* ArduinoJson create jsonDoc 
+Must be know its have a different function 
+if you use library ArduinoJson ver 5.x.x or 6.x.x
+-- in this program using library ArduinoJson ver 5.x.x
+*/
+const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(2);                                         // define number of key-value pairs in the object pointed by the JsonObject.
+
+ DynamicJsonBuffer jsonBuffer(BUFFER_SIZE);                                             // memory management jsonBuffer which is allocated on the heap and grows automatically (dynamic memory)
+  JsonObject& JSONencoder = jsonBuffer.createObject();                                  // createObject function jsonBuffer
+
+  /* Encode object in jsonBuffer */
+  JSONencoder["id_controller"] = "CTR01";                                               // key/object its = id_controller
+  JSONencoder["flagrestart"] = 1;                                                        // key/object its = limit                                                 // key/object its = limit
+
+  char JSONmessageBuffer[100];                                                          // array of char JSONmessageBuffer is 100
+  JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));                    // “minified” a JSON document
+
+  #ifdef DEBUG
+  Serial.println("Sending message to MQTT topic...");                                   // line debugging
+  Serial.println(JSONmessageBuffer);                                                    // line debugging
+  #endif
+
+  client.publish("PSI/countingbenang/datacollector/startcontroller", JSONmessageBuffer);     // publish payload to broker <=> client.publish(topic, payload);
+
+  /* error correction */
+  if(client.publish("PSI/countingbenang/datacollector/startcontroller", JSONmessageBuffer) == true){
+    #ifdef DEBUG
+    Serial.println("SUCCESS PUBLISHING PAYLOAD");
+    #endif
+  } else {
+    #ifdef DEBUG
+    Serial.println("ERROR PUBLISHING");
+    #endif
+  }
+}
+
+
+//==========================================================================================================================================//
 //==========================================================|   Procedure callback    |=====================================================//                                         
 //==========================================================================================================================================//
 char data[80];
-StaticJsonBuffer<200> jsonBuffer;
+StaticJsonBuffer<300> jsonBuffer;
 void callback(char* topic, byte* payload, unsigned int length) {
   #ifdef DEBUG
   Serial.print("Message arrived in topic: ");
@@ -270,7 +320,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message:");
   #endif
 
-  char inData[120];
+  char inData[500];
   for (int i = 0; i < length; i++) {
     Serial.print((char)payload[i]);
     inData[(i - 0)] = (const char*)payload[i];
@@ -286,10 +336,16 @@ void callback(char* topic, byte* payload, unsigned int length) {
   String time = root["current_time"];
   int statusTime = root["flagtime"];
 
+    // Parse object JSON from subscribe data flagreply
+  int serverLastMAC01 = root["MAC01"]; 
+  int serverLastMAC02 = root["MAC02"]; 
+  int flagreply = root["flagreply"]; 
+
+
   #ifdef DEBUG
   Serial.println(time);
   Serial.println(statusTime);
-  #endif
+  #endif // DEBUG
 
   if(statusTime == 1){
     timeSubscribe = true;
@@ -304,20 +360,19 @@ void callback(char* topic, byte* payload, unsigned int length) {
   hour = time.substring(12,14).toInt();
   minute = time.substring(15,17).toInt();
 
-  // Parse object JSON from subscribe data flagreply
-  serverLastData_S1 = root["MAC01"]; 
-  serverLastData_S2 = root["MAC01"]; 
-  int statusReply = root["flagreply"]; 
-
   #ifdef DEBUG
-  Serial.print("serverLastData_MAC01="); Serial.println(serverLastData_S1);
-  Serial.print("serverLastData_MAC02="); Serial.println(serverLastData_S2);
-  Serial.print("status flagreply= "); Serial.println(statusReply);
+  Serial.print("serverLastData_MAC01="); Serial.println(serverLastMAC01);
+  Serial.print("serverLastData_MAC02="); Serial.println(serverLastMAC02);
+  Serial.print("status flagreply= "); Serial.println(flagreply);
   #endif // DEBUG
 
-  if(statusReply == 1){
+  if(flagreply == 1){
     replySubscribe = true;
   }
+
+  serverLastData_S1 = serverLastMAC01;
+  serverLastData_S2 = serverLastMAC02; 
+  jsonBuffer.clear();
 } 
 
 
@@ -391,7 +446,6 @@ void showData(){
       // Publish Data
       if(replySubscribe){
          publishData_S1();
-         replySubscribe = false;
       } else {
         #ifdef DEBUG
         Serial.println("Not reply anyone data !!!");
@@ -441,7 +495,6 @@ void showData(){
       // Publish Data
       if(replySubscribe){
          publishData_S2();
-         replySubscribe = false;
       } else {
         #ifdef DEBUG
         Serial.println("Not reply anyone data !!!");
@@ -475,7 +528,14 @@ void errorData(){
     Serial.println("=========================");
     Serial.println("        ERROR !!!        ");
     Serial.print("status S1= ");Serial.println(status_S1); 
-    publishData_S1();
+    // Publish Data
+    if(replySubscribe){
+       publishData_S1();
+    } else {
+      #ifdef DEBUG
+      Serial.println("Not reply anyone data !!!");
+      #endif // DEBUG
+    } 
     Serial.println("=========================");
     Serial.println(" ");
   }
@@ -485,7 +545,14 @@ void errorData(){
     Serial.println("=========================");
     Serial.println("        ERROR !!!        ");
     Serial.print("status S2= ");Serial.println(status_S2); 
-    publishData_S2();
+    // Publish Data
+    if(replySubscribe){
+       publishData_S2();
+    } else {
+      #ifdef DEBUG
+      Serial.println("Not reply anyone data !!!");
+      #endif // DEBUG
+    } 
     Serial.println("=========================");
     Serial.println(" ");
   }
@@ -550,6 +617,7 @@ void setup(){
     /* Mode pin definition */
     pinMode(COM1, OUTPUT);
     pinMode(COM2, OUTPUT);
+    pinMode(EMG_BUTTON, INPUT_PULLUP);
     
     /* Callibration RTC module with NTP Server */
     Wire.begin();
@@ -559,26 +627,40 @@ void setup(){
 
     /* Setup Ethernet connection */
     Ethernet.begin(mac, ip);
+
     /* Setup Broker (server) MQTT Connection */
     client.setServer(server, portServer);
     client.setCallback(callback);
     reconnect();
     
+    /* Setup topic subscriber */
     client.subscribe("PSI/countingbenang/server/infotimestamp");    //topic get data timestamp from server
     client.subscribe("PSI/countingbenang/server/replystart");    //topic get reset from server
+
     /* reserve 200 bytes for the incomingData*/
     incomingData.reserve(200);
+
+    /* attachInterrupt Here */
+    attachInterrupt(digitalPinToInterrupt(EMG_BUTTON), executeFlagrestart, LOW);
 }
+
 
 
 //==========================================================================================================================================//
 //===========================================================|   Main Loop    |=============================================================//                                         
 //==========================================================================================================================================//
 void loop(){
+    digitalWrite(EMG_LED, LOW);
     syncDataTimeRTC();
     sendCommand();
     showData();
     errorData();
+    if(trig_publishFlagRestart){
+       trig_publishFlagRestart = false;
+      for(int i = 0; i<1; i++){
+        publishFlagRestart();
+      }
+    }
     client.loop();   // Use to loop callback function
 }
 
@@ -613,5 +695,17 @@ void serialEvent3(){
         }
       }
     }
+  }
+}
+
+
+
+//==========================================================================================================================================//
+//=========================================================|   Digital ISR    |=============================================================//                                         
+//==========================================================================================================================================//
+void executeFlagrestart(){
+  if(digitalRead(EMG_BUTTON) == LOW){
+    digitalWrite(EMG_LED, HIGH);
+    trig_publishFlagRestart = true;
   }
 }
