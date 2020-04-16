@@ -657,9 +657,7 @@ void loop(){
     errorData();
     if(trig_publishFlagRestart){
        trig_publishFlagRestart = false;
-      for(int i = 0; i<1; i++){
         publishFlagRestart();
-      }
     }
     client.loop();   // Use to loop callback function
 }
