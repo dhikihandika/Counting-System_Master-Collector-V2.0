@@ -198,6 +198,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
   /* error correction */
   if(client.publish("PSI/countingbenang/datacollector/reportdata", JSONmessageBuffer) == true){
     lastData_S1 = (data_S1 + serverLastData_S1) - (1 + serverLastData_S1);
+    digitalWrite(COM1, LOW);
     #ifdef DEBUG
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
     #endif
@@ -251,6 +252,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
   /* error correction */
   if(client.publish("PSI/countingbenang/datacollector/reportdata", JSONmessageBuffer) == true){
     lastData_S2 = (data_S2 + serverLastData_S2) - (1 + serverLastData_S2);
+    digitalWrite(COM2, LOW);
     #ifdef DEBUG
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
     #endif
@@ -457,7 +459,6 @@ void showData(){
       Serial.print(" | status S1= ");Serial.println(status_S1); 
       Serial.println("------------------------------||-------------------------------\n");                                              
       #endif //DEBUG
-      digitalWrite(COM1, LOW);
       } 
   } else {
     /* Show data for sensor 2 */
@@ -506,7 +507,6 @@ void showData(){
       Serial.print(" | status S2= ");Serial.println(status_S2); 
       Serial.println("------------------------------||-------------------------------\n");                                                  
       #endif //DEBUG
-      digitalWrite(COM2, LOW);
       } 
     } 
   }
