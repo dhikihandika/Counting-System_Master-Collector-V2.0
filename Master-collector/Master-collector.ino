@@ -40,7 +40,9 @@ PubSubClient client(ethClient);                                     // Instance 
 
 /* variable timer millis */
 unsigned long currentMillis = 0;  
-unsigned long currentMillis_errorData = 0;                   
+unsigned long currentMillis_errorData = 0;     
+unsigned long currentMillis_LastValueS1 = 0;    
+unsigned long currentMillis_LastValueS2 = 0;                
 unsigned long previousMillis = 0;
 
 /* global variable to save date and time from RTC */
@@ -197,7 +199,6 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
 
   /* error correction */
   if(client.publish("PSI/countingbenang/datacollector/reportdata", JSONmessageBuffer) == true){
-    lastData_S1 = (data_S1 + serverLastData_S1) - (1 + serverLastData_S1);
     digitalWrite(COM1, LOW);
     #ifdef DEBUG
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
@@ -230,7 +231,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
   JsonObject& JSONencoder = jsonBuffer.createObject();                                  // createObject function jsonBuffer
 
   /* Encode object in jsonBuffer */
-  JSONencoder["id_controller"] = "CTR01";                                               // key/object its = id_controller
+  JSONencoder["id_controller"] = "CTR02";                                               // key/object its = id_controller
   JSONencoder["id_machine"] = "id_machine1";                                              // key/object its = id_machine
   JSONencoder["clock"] = stringyear +"-"+stringmonth+"-"+stringday+" "+stringhour+":"+stringminute+":"+stringsecond;
   JSONencoder["count"] = countData_S2;                                                       // key/object its = count
@@ -246,12 +247,10 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
   Serial.println(JSONmessageBuffer);                                                    // line debugging
   #endif
 
- 
   client.publish("PSI/countingbenang/datacollector/reportdata", JSONmessageBuffer);     // publish payload to broker <=> client.publish(topic, payload);
 
   /* error correction */
   if(client.publish("PSI/countingbenang/datacollector/reportdata", JSONmessageBuffer) == true){
-    lastData_S2 = (data_S2 + serverLastData_S2) - (1 + serverLastData_S2);
     digitalWrite(COM2, LOW);
     #ifdef DEBUG
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
@@ -420,7 +419,7 @@ void showData(){
       Serial.println("Prefix_A --OK--");
       Serial.print("incomming data= ");Serial.print(incomingData);
       #endif
-
+      
       digitalWrite(COM1, HIGH);
       status_S1 = 0;
       /* remove header and footer */
@@ -438,7 +437,7 @@ void showData(){
       incomingData = "";
 
       //Processing Data
-      diffData_S1 = (data_S1 + serverLastData_S1) - (lastData_S1 + serverLastData_S1);
+      diffData_S1 = (data_S1 + serverLastData_S1) - lastData_S1;
       if(diffData_S1<0){
         countData_S1 = diffData_S1 + limitData; 
       } else {
@@ -454,8 +453,15 @@ void showData(){
         #endif // DEBUG
       } 
 
+      // fill lastDataS2
+      if((millis() - currentMillis_LastValueS1) > 4000){
+        currentMillis_LastValueS1 = millis();
+        lastData_S1 = data_S1 + serverLastData_S1;
+      }
+      
+
       #ifdef DEBUG
-      Serial.print("data S1= ");Serial.print(data_S1); 
+      Serial.print("current data_S1= ");Serial.print(data_S1); 
       Serial.print(" | status S1= ");Serial.println(status_S1); 
       Serial.println("------------------------------||-------------------------------\n");                                              
       #endif //DEBUG
@@ -486,7 +492,7 @@ void showData(){
       incomingData = "";
 
       // Processing Data
-      diffData_S2 = (data_S2 + serverLastData_S2) - (lastData_S2 + serverLastData_S2);
+      diffData_S2 = (data_S2 + serverLastData_S2) - lastData_S2;
       if(diffData_S2<0){
         countData_S2 = diffData_S2 + limitData; 
       } else {
@@ -502,8 +508,14 @@ void showData(){
         #endif // DEBUG
       } 
 
+      // fill last data
+      if((millis() - currentMillis_LastValueS2) > 4000){
+        currentMillis_LastValueS2 = millis();
+        lastData_S2 = data_S2 + serverLastData_S2;
+      }
+
       #ifdef DEBUG
-      Serial.print("data_S2= ");Serial.print(data_S2); 
+      Serial.print("current data_S2= ");Serial.print(data_S2); 
       Serial.print(" | status S2= ");Serial.println(status_S2); 
       Serial.println("------------------------------||-------------------------------\n");                                                  
       #endif //DEBUG
@@ -695,7 +707,6 @@ void serialEvent3(){
     }
   }
 }
-
 
 
 //==========================================================================================================================================//
