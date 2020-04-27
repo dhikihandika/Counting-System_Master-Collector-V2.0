@@ -360,6 +360,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   day = time.substring(9,11).toInt();
   hour = time.substring(12,14).toInt();
   minute = time.substring(15,17).toInt();
+  second = time.substring(18,20).toInt();
 
   #ifdef DEBUG
   Serial.print("serverLastData_MAC01="); Serial.println(serverLastMAC01);
@@ -612,7 +613,7 @@ void RTCprint(){
 //==========================================================================================================================================//
 void syncDataTimeRTC(){
   if(timeSubscribe == true){
-    RTC.adjust(DateTime(year, month, day, hour, minute));
+    RTC.adjust(DateTime(year, month, day, hour, minute, second));
     timeSubscribe = false;
   }
 }
