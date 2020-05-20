@@ -3,41 +3,40 @@ Developed : March, 16th 2020
 */
 
 //=======================================================Counting Machine========================================================
-
 #include <SoftwareSerial.h>       // initiation of software serial 
 SoftwareSerial SerialOne (11,12); // software serial pinout for RX, TX
 
 String inputString = "";          // string for hold upcoming data
 bool stringComplete = false;      // initiation of string complete requirement
+bool sensor_read = false;         // status initiation of activation sensor reading (true/false)
+
+uint32_t count = 0;               // counting start from 0
+uint32_t limit = 60000;           // setup limit
+int sensor = 2;                   // pinout initiation of sensor E18
+int SensorNow;                    // initiation of current sensor reading
 
 int dipswitch[] = {6,7,8,9};      // pinout initiation of dipswitch
 int i;                            // index initiation of dipswitch
+int LED_communication = 4;        // initiation of communication LED
 
-int LED_communication = 4;      // initiation of communication LED
+const byte LED_counting = 5;      // initiation of pinout LED
 
-const byte LED_counting = 5;               // initiation of pinout LED
-int sensor = 2;                   // pinout initiation of sensor E18
-bool sensor_read = false;         // status initiation of activation sensor reading (true/false)
-int SensorNow;                    // initiation of current sensor reading
-uint32_t count = 0;               // counting start from 0
-int limit = 257;
 
 //===============================================Sensor, LED, and Counting Reading====================================================
-
 void active() {
   if(SensorNow == LOW){                         // if current sensor NOW
     count = count+1;                            // counting fomula
-    digitalWrite(LED_counting, LOW);                     // counting LED is on (although the logic is LOW) 
+    digitalWrite(LED_counting, LOW);            // counting LED is on (although the logic is LOW) 
     sensor_read = true;                         // activate sensor reading
   }
 
   if(SensorNow == HIGH){                        // if current sensor HIGH
-    digitalWrite(LED_counting, HIGH);                    // counting LED is off
+    digitalWrite(LED_counting, HIGH);           // counting LED is off
   }
 }
 
-//======================================================Slave-Master Serial Communication==============================================
 
+//======================================================Slave-Master Serial Communication==============================================
 void execution_1(){                              
    if(stringComplete){                  // if string complete true
      SerialOne.println(inputString);    // slave serial monitor printed the string that was entered
@@ -49,7 +48,6 @@ void execution_1(){
         Serial.print("\n");               // master serial monitor printed line changes
         digitalWrite(LED_communication, LOW); // communication LED is off
    }
-
    inputString = "";                      // flexible input string initiation
    stringComplete = false;                // string complete finished
    }
@@ -66,15 +64,12 @@ void execution_2(){
         Serial.print("\n");               // master serial monitor printed line changes
         digitalWrite(LED_communication, LOW); // communication LED is off
     }
-
    inputString = "";                      // flexible input string initiation
-   stringComplete = false;                // string complete finished
-        
+   stringComplete = false;                // string complete finished  
     }
 }
 
 //===========================================================VOID SETUP==========================================================
-
 void setup() {
   Serial.begin(9600);                   // baudrate declaration of master serial monitor
   SerialOne.begin(9600);                // baudrate declaration of slave serial monitor
@@ -93,9 +88,8 @@ void setup() {
 }
 
 //=============================================================VOID LOOP=========================================================
-
 void loop() {
-    SensorNow = digitalRead(sensor);   // current sensor reads value of sensor 1
+  SensorNow = digitalRead(sensor);   // current sensor reads value of sensor 1
   switch(address()){
     case B0000:                 // biner dipswitch 0
       sensor_read = false;          // sensor reading deactivated
@@ -117,21 +111,19 @@ void loop() {
 
     if(count >= limit){                     // if counting reached the limit
         count=0;                            // reset from 1
-      }
+    }
 }
 
-//====================================================Addressing Dipswitch=======================================================
-
+//=====================================================Function Addressing Dipswitch===============================================
 byte address(){
     int j=0;                                    // initiation of variable i and j = 0
     for(i=0; i<=3; i++){                        // for 0<i<=3
       j = (j << 1) | digitalRead(dipswitch[i]); // variable j shifting to the left ke kiri about 1 bit
     }  
-   return j;                                    // back to ke j
+   return j;                                    // back to j
 }
 
 //==========================================Serial Communication of Reading Master Message=========================================
-
 void serialEvent() {
   while (Serial.available()) {            // take the new byte
     char inChar = (char)Serial.read();    // add the new byte to the input string
