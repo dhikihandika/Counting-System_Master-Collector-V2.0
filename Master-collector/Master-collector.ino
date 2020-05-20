@@ -16,14 +16,16 @@ Date    : 18/03/2020
 #define DEBUG
 
 #define limitData 60000                             // limit countData
-#define timer1 5000                                 // timer send command to sensor module 1
-#define timer2 10000                                // timer send command to sensor module 2
+#define timer1_from 5000                            // timer send command to sensor module 1
+#define timer1_until 5010                           // timer send command to sensor module 1
+#define timer2_from 10000                           // timer send command to sensor module 2
+#define timer2_until 10010                           // timer send command to sensor module 2
 
 #define EMG_BUTTON 2                                // define Emergency Button 
 
 #define COM1 32                                     // define LED communication slave1
 #define COM2 33                                     // define LED communication slave2 
-#define COM2 34                                     // define LED communication slave3 
+#define COM3 34                                     // define LED communication slave3 
 
 
 RTC_DS1307 RTC;                                     // Define type RTC as RTC_DS1307 (must be suitable with hardware RTC will be used)
@@ -90,10 +92,11 @@ bool stringComplete = false;                        // whether the string is com
 /* varible check boolean prefix of data */
 bool prefix_A = false;
 bool prefix_B = false;
+bool syncLastData_S1 = false;
+bool syncLastData_S2 = false;
+
 
 /* variable check boolean to identify subscribe */
-bool timeSubscribe = false;
-bool replySubscribe = false;
 bool trig_publishFlagRestart = false;
 
 String time;
@@ -140,6 +143,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   serverLastMAC02 = root["M2"]; 
   flagreply = root["flagreply"]; 
   time = currentTime;
+  lastData_S1 = serverLastMAC01; lastData_S2 = serverLastMAC02;
   jsonBuffer.clear();
 } 
 
@@ -154,12 +158,13 @@ void reconnect(){
     #ifdef DEBUG
     Serial.print("Attemping MQTT connection...");
     #endif
-    if(client.connect("arduinoClient"),1){
+    if(client.connect("arduinoClient")){
       Serial.println("connected");
+      errorCheck_S1 = 0; errorCheck_S2 = 0;
+      currentMillis = millis(); previousMillis = 0;
       // Publish variable startup system
       publishFlagStart();
-    }
-    else{
+    }else{
       #ifdef DEBUG
       Serial.print("failed, rc=");  
       Serial.print(client.state());
@@ -378,7 +383,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
 //==========================================================================================================================================//
 void sendCommand(){
     currentMillis = millis();
-    if(currentMillis - previousMillis == timer1){
+    if((currentMillis - previousMillis >= timer1_from)&&(currentMillis - previousMillis < timer1_until)){
         #ifdef DEBUG
         Serial.println("");
         Serial.println("---------------------------------------------------------------");  
@@ -387,7 +392,7 @@ void sendCommand(){
         #endif // DEBUG
         Serial3.print("S_1\n");
     } else {
-        if(currentMillis - previousMillis == timer2){
+        if((currentMillis - previousMillis >= timer2_from)&&(currentMillis - previousMillis < timer2_until)){
            previousMillis = currentMillis;  
             #ifdef DEBUG
             Serial.println("");
@@ -433,16 +438,16 @@ void showData(){
       prefix_A = false;
       incomingData = "";
 
-      //Processing Data
-      diffData_S1 = (data_S1 + serverLastData_S1) - lastData_S1;
+      //Processing Data                                       
+      diffData_S1 = data_S1 - lastData_S1;
       if(diffData_S1<0){
-        countData_S1 = diffData_S1 + limitData; 
-      } else {
+        countData_S1 = data_S1; 
+        } else {
         countData_S1 = diffData_S1;
       }
 
       // Publish Data
-      if(replySubscribe){
+      if(flagreply == 1){
          publishData_S1();
       } else {
          publishFlagStart();
@@ -454,7 +459,7 @@ void showData(){
       // fill lastDataS2
       if((millis() - currentMillis_LastValueS1) > 4000){
         currentMillis_LastValueS1 = millis();
-        lastData_S1 = data_S1 + serverLastData_S1;
+        lastData_S1 = data_S1;
       }
       
       #ifdef DEBUG
@@ -489,15 +494,16 @@ void showData(){
       incomingData = "";
 
       // Processing Data
-      diffData_S2 = (data_S2 + serverLastData_S2) - lastData_S2;
+      diffData_S2 = data_S2 - lastData_S2;
       if(diffData_S2<0){
-        countData_S2 = diffData_S2 + limitData; 
-      } else {
+        countData_S2 = data_S2; 
+        } else {
         countData_S2 = diffData_S2;
       }
-
+      
+      
       // Publish Data
-      if(replySubscribe){
+      if(flagreply == 1){
          publishData_S2();
       } else {
          publishFlagStart();
@@ -509,7 +515,7 @@ void showData(){
       // fill last data
       if((millis() - currentMillis_LastValueS2) > 4000){
         currentMillis_LastValueS2 = millis();
-        lastData_S2 = data_S2 + serverLastData_S2;
+        lastData_S2 = data_S2;
       }
 
       #ifdef DEBUG
@@ -539,7 +545,7 @@ void errorData(){
     Serial.println("        ERROR !!!        ");
     Serial.print("status S1= ");Serial.println(status_S1); 
     // Publish Data
-    if(replySubscribe){
+    if(flagreply == 1){
        publishData_S1();
     } else {
         publishFlagStart();
@@ -557,7 +563,7 @@ void errorData(){
     Serial.println("        ERROR !!!        ");
     Serial.print("status S2= ");Serial.println(status_S2); 
     // Publish Data
-    if(replySubscribe){
+    if(flagreply == 1){
        publishData_S2();
     } else {
         publishFlagStart();
@@ -614,10 +620,8 @@ void RTCprint(){
 //==========================================================================================================================================//
 void syncDataTimeRTC(){
   if(statusTime == 1){
-    timeSubscribe = true;
     status_S1 = 0;
     status_S2 = 0;
-  }
 
     /* Parse timestamp value */
     year = time.substring(1,5).toInt();
@@ -627,23 +631,21 @@ void syncDataTimeRTC(){
     minute = time.substring(15,17).toInt();
     second = time.substring(18,20).toInt();
 
-  if(timeSubscribe == true){
     RTC.adjust(DateTime(year, month, day, hour, minute, second));
-    timeSubscribe = false;
+    statusTime = 0;
   }
 }
 
 
-//==========================================================================================================================================//
-//================================================|   Procedure Sync lastDatafrom Server   |================================================//                                         
-//==========================================================================================================================================//
-void syncLastDataServer(){
-  if(flagreply == 1){
-    replySubscribe = true;
-  }
-  serverLastData_S1 = serverLastMAC01;
-  serverLastData_S2 = serverLastMAC02; 
-}
+// //==========================================================================================================================================//
+// //================================================|   Procedure Sync lastDatafrom Server   |================================================//                                         
+// //==========================================================================================================================================//
+// void syncLastDataServer(){
+//   if(flagreply == 1){
+//     syncLastData_S1 = true; syncLastData_S2 = true;
+//     serverLastData_S1 = serverLastMAC01; serverLastData_S2 = serverLastMAC02; 
+//   }
+// }
 
 
 //==========================================================================================================================================//
@@ -692,7 +694,7 @@ void setup(){
 //==========================================================================================================================================//
 void loop(){
     syncDataTimeRTC();
-    syncLastDataServer();
+    // syncLastDataServer();
     reconnect();
     sendCommand();
     showData();
