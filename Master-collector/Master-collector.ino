@@ -6,27 +6,26 @@ Date    : 18/03/2020
 //==========================================================================================================================================//
 //===================================================|   Initialization Program    |========================================================//                                         
 //==========================================================================================================================================//
-#include <RTClib.h>                                                 // Add library RTC
-#include <Wire.h>                                                   // Add Library Wire RTC communication
-#include <Ethernet.h>                                               // Add library ethernet
-#include <SPI.h>                                                    // Add library protocol communication SPI
-#include <ArduinoJson.h>                                            // Add library arduino json 
-#include <PubSubClient.h>                                           // Add library PubSubClient MQTT
+#include <RTClib.h>                                 // Add library RTC
+#include <Wire.h>                                   // Add Library Wire RTC communication
+#include <Ethernet.h>                               // Add library ethernet
+#include <SPI.h>                                    // Add library protocol communication SPI
+#include <ArduinoJson.h>                            // Add library arduino json 
+#include <PubSubClient.h>                           // Add library PubSubClient MQTT
 
 #define DEBUG
 
 #define limitData 60000                             // limit countData
-#define timer1_from 5000                            // timer send command to sensor module 1
-#define timer1_until 5010                           // timer send command to sensor module 1
-#define timer2_from 10000                           // timer send command to sensor module 2
-#define timer2_until 10010                           // timer send command to sensor module 2
+#define timer1_from 5000                                 // timer send command to sensor module 1
+#define timer2_from 10000                                // timer send command to sensor module 2
+#define timer1_until 5005                           // timer send command to sensor module 1
+#define timer2_until 10005                          // timer send command to sensor module 2
 
-#define EMG_BUTTON 2                                // define Emergency Button 
+#define EMG_BUTTON 2                                // define Emergency Button
 
 #define COM1 32                                     // define LED communication slave1
 #define COM2 33                                     // define LED communication slave2 
 #define COM3 34                                     // define LED communication slave3 
-
 
 RTC_DS1307 RTC;                                     // Define type RTC as RTC_DS1307 (must be suitable with hardware RTC will be used)
 
@@ -34,25 +33,30 @@ RTC_DS1307 RTC;                                     // Define type RTC as RTC_DS
 byte mac[]  = {0xDE, 0xED, 0xBA, 0xFE, 0xFE, 0xED };                // MAC Address by see sticker on Arduino Etherent Shield or self determine
 IPAddress ip(192, 168, 0, 188);                                     // IP ethernet shield assigned, in one class over the server
 IPAddress server(192, 168, 0, 180);                                 // IP LAN (Set ststic IP in PC/Server)
-// IPAddress ip(192, 168, 12, 188);                                   // IP ethernet shield assigned, in one class over the server
-// IPAddress server(192, 168, 12, 12);                               // IP LAN (Set ststic IP in PC/Server)
+// IPAddress ip(192, 168, 12, 188);                                 // IP ethernet shield assigned, in one class over the server
+// IPAddress server(192, 168, 12, 12);                              // IP LAN (Set ststic IP in PC/Server)
 int portServer = 1883;                                              // Determine portServer MQTT connection
 
-// Callback function header
+/* Callback function header */
 void callback(char* topic, byte* payload, unsigned int length);
 
 EthernetClient ethClient;
-PubSubClient client(server, 1883, callback, ethClient);
-
+PubSubClient client(server, 1883, callback, ethClient);             
 
 /* variable timer millis */
 unsigned long currentMillis = 0;  
-unsigned long currentMillis_errorData = 0;     
-unsigned long currentMillis_LastValueS1 = 0;    
-unsigned long currentMillis_LastValueS2 = 0;                
+unsigned long currentMillis_errorData = 0;         
+unsigned long currentMillis_LastValueS1 = 0;          
+unsigned long currentMillis_LastValueS2 = 0;  
+unsigned long currentMillis_errorAttemping = 0;
+unsigned long previousMillis_errorAttemping = 0;        
 unsigned long previousMillis = 0;
-unsigned long currentMillis_Cycle = 0;
-unsigned long timeCycle = 0;
+
+/* variable use to be calcuate timecycle program */
+unsigned long currentMillis_Cycle1 = 0;
+unsigned long currentMillis_Cycle2 = 0;
+unsigned long timeCycle1 = 0;
+unsigned long timeCycle2 = 0;
 
 /* global variable to save date and time from RTC */
 int year, month, day, hour, minute, second; 
@@ -69,6 +73,9 @@ uint32_t lastData_S2 = 0;
 /* variable incoming data (current data) */
 uint32_t data_S1 = 0;
 uint32_t data_S2 = 0;
+
+/* variable number initiale with "1" */
+uint32_t nuPub = 1; 
 
 /* variable data publish */
 uint32_t countData_S1 = 0;
@@ -95,7 +102,6 @@ bool prefix_B = false;
 bool syncLastData_S1 = false;
 bool syncLastData_S2 = false;
 
-
 /* variable check boolean to identify subscribe */
 bool trig_publishFlagRestart = false;
 
@@ -108,23 +114,27 @@ int serverLastMAC02 = 0;
 int QoS_0 = 0;
 int QoS_1 = 1;
 int QoS_2 = 2;
+int ledState = LOW;             // ledState used to set the LED
 
 
 //==========================================================================================================================================//
-//==========================================================|   Fungsi callback    |=====================================================//                                         
+//==========================================================|   Fungsi callback    |========================================================//                                         
 //==========================================================================================================================================//
 char data[80];
 DynamicJsonBuffer jsonBuffer;
-void callback(char* topic, byte* payload, unsigned int length) {
+void callback(char* topic, byte* payload, unsigned int length){
   #ifdef DEBUG
   Serial.print("Message arrived in topic: ");
   Serial.println(topic);
   Serial.print("Message:");
   #endif
 
-  char inData[128];
-  for (int i = 0; i < length; i++) {
+  // Parse data 
+  char inData[128];                                 // buffer callback only allow data 128 byte
+  for (int i = 0; i < length; i++){
+    #ifdef DEBUG
     Serial.print((char)payload[i]);
+    #endif
     inData[(i - 0)] = (const char*)payload[i];
   }
 
@@ -139,38 +149,48 @@ void callback(char* topic, byte* payload, unsigned int length) {
   statusTime = root["flagtime"];
 
   // Parse object JSON from subscribe data flagreply
-  serverLastMAC01 = root["M1"]; 
-  serverLastMAC02 = root["M2"]; 
-  flagreply = root["flagreply"]; 
+  serverLastMAC01 = root["M1"];
+  serverLastMAC02 = root["M2"];
+  flagreply = root["flagreply"];
   time = currentTime;
   lastData_S1 = serverLastMAC01; lastData_S2 = serverLastMAC02;
   jsonBuffer.clear();
 } 
 
 
-
 //==========================================================================================================================================//
 //=========================================================|   Procedure reconnect    |=====================================================//                                         
 //==========================================================================================================================================//
 void reconnect(){
-  currentMillis_Cycle = millis();
   while(!client.connected()){
     #ifdef DEBUG
     Serial.print("Attemping MQTT connection...");
     #endif
     if(client.connect("arduinoClient")){
+      #ifdef DEBUG
       Serial.println("connected");
+      #endif
       errorCheck_S1 = 0; errorCheck_S2 = 0;
-      currentMillis = millis(); previousMillis = 0;
+      currentMillis = millis(); previousMillis = millis(); currentMillis_errorData = millis(); 
       // Publish variable startup system
       publishFlagStart();
     }else{
+      currentMillis_errorAttemping = millis();
       #ifdef DEBUG
       Serial.print("failed, rc=");  
       Serial.print(client.state());
       Serial.println("try again 5 second");
       #endif
-      delay(2000);
+      if(currentMillis_errorAttemping - previousMillis_errorAttemping >= 1000){
+        previousMillis_errorAttemping = currentMillis_errorAttemping;
+        // if the LED is off turn it on and vice-versa:
+        if (ledState == LOW) {
+          ledState = HIGH;
+          }else{
+            ledState = LOW;
+          }
+        digitalWrite(COM1,ledState);digitalWrite(COM2,ledState);digitalWrite(COM3,ledState);
+      }
     }
   }
 }
@@ -180,18 +200,21 @@ void reconnect(){
 //==========================================================================================================================================//
 void publishFlagStart(){
     if(client.connect("arduinoClient")){
+      #ifdef DEBUG
       Serial.println("connected");
+      #endif
+
       // Publish variable startup system
       const size_t restart = JSON_OBJECT_SIZE(2);
       DynamicJsonBuffer jsonBuffer(restart);
       JsonObject& root = jsonBuffer.createObject();
-      
+
       root["id_controller"] = "CTR01";
       root["flagstart"] = 1;
 
       char buffermessage[300];
       root.printTo(buffermessage, sizeof(buffermessage));
-
+                                      
       #ifdef DEBUG
       Serial.println("Sending message to MQTT topic...");
       Serial.println(buffermessage);
@@ -212,14 +235,7 @@ void publishFlagStart(){
       Serial.println("");
       #endif
       }
-    } else {
-      #ifdef DEBUG
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println("try again 5 second");
-      #endif
-      delay(2000);
-  }
+    }
 }
 
 
@@ -244,7 +260,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(2);                                 
 
   /* Encode object in jsonBuffer */
   JSONencoder["id_controller"] = "CTR01";                                               // key/object its = id_controller
-  JSONencoder["flagrestart"] = 1;                                                        // key/object its = limit                                                 // key/object its = limit
+  JSONencoder["flagrestart"] = 1;                                                       // key/object its = limit
 
   char JSONmessageBuffer[100];                                                          // array of char JSONmessageBuffer is 100
   JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));                    // “minified” a JSON document
@@ -254,18 +270,18 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(2);                                 
   Serial.println(JSONmessageBuffer);                                                    // line debugging
   #endif
 
-  client.publish("PSI/countingbenang/datacollector/startcontroller", JSONmessageBuffer);     // publish payload to broker <=> client.publish(topic, payload);
+  client.publish("PSI/countingbenang/datacollector/startcontroller", JSONmessageBuffer);// publish payload to broker <=> client.publish(topic, payload);
 
   /* error correction */
   if(client.publish("PSI/countingbenang/datacollector/startcontroller", JSONmessageBuffer) == true){
     #ifdef DEBUG
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
     #endif
-  } else {
-    #ifdef DEBUG
-    Serial.println("ERROR PUBLISHING");
-    #endif
-  }
+    } else {
+      #ifdef DEBUG
+      Serial.println("ERROR PUBLISHING");
+      #endif
+    }
 }
 
 
@@ -286,14 +302,15 @@ Must be know its have a different function
 if you use library ArduinoJson ver 5.x.x or 6.x.x
 -- in this program using library ArduinoJson ver 5.x.x
 */
-const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                         // define number of key-value pairs in the object pointed by the JsonObject.
+const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(8);                                         // define number of key-value pairs in the object pointed by the JsonObject.
 
  DynamicJsonBuffer jsonBuffer(BUFFER_SIZE);                                             // memory management jsonBuffer which is allocated on the heap and grows automatically (dynamic memory)
   JsonObject& JSONencoder = jsonBuffer.createObject();                                  // createObject function jsonBuffer
 
   /* Encode object in jsonBuffer */
+  JSONencoder["number"] = nuPub; 
   JSONencoder["id_controller"] = "CTR01";                                               // key/object its = id_controller
-  JSONencoder["id_machine"] = "MAC01_01";                                            // key/object its = id_machine
+  JSONencoder["id_machine"] = "MAC01_01";                                               // key/object its = id_machine
   JSONencoder["clock"] = stringyear +"-"+stringmonth+"-"+stringday+" "+stringhour+":"+stringminute+":"+stringsecond;
   JSONencoder["count"] = countData_S1;                                                  // key/object its = count
   JSONencoder["status"] = status_S1;                                                    // key/object its = status
@@ -312,11 +329,15 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
 
   /* error correction */
   if(client.publish("PSI/countingbenang/datacollector/reportdata", JSONmessageBuffer) == true){
-    digitalWrite(COM1, LOW);
-    timeCycle = millis() - currentMillis_Cycle;
+    if(status_S1 == 0){
+      digitalWrite(COM1, LOW);
+    }
+    nuPub++;
+    if(nuPub == 600001){
+      nuPub = 0;
+    }
     #ifdef DEBUG
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
-    Serial.print("One loop timeCycle: "); Serial.println(timeCycle);
     #endif
   } else {
     #ifdef DEBUG
@@ -340,18 +361,19 @@ Must be know its have a different function
 if you use library ArduinoJson ver 5.x.x or 6.x.x
 -- in this program using library ArduinoJson ver 5.x.x
 */
-const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                         // define number of key-value pairs in the object pointed by the JsonObject.
+const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(8);                                         // define number of key-value pairs in the object pointed by the JsonObject.
 
  DynamicJsonBuffer jsonBuffer(BUFFER_SIZE);                                             // memory management jsonBuffer which is allocated on the heap and grows automatically (dynamic memory)
   JsonObject& JSONencoder = jsonBuffer.createObject();                                  // createObject function jsonBuffer
 
   /* Encode object in jsonBuffer */
+  JSONencoder["number"] = nuPub; 
   JSONencoder["id_controller"] = "CTR01";                                               // key/object its = id_controller
-  JSONencoder["id_machine"] = "MAC02_01";                                              // key/object its = id_machine
+  JSONencoder["id_machine"] = "MAC02_01";                                               // key/object its = id_machine
   JSONencoder["clock"] = stringyear +"-"+stringmonth+"-"+stringday+" "+stringhour+":"+stringminute+":"+stringsecond;
-  JSONencoder["count"] = countData_S2;                                                       // key/object its = count
+  JSONencoder["count"] = countData_S2;                                                  // key/object its = count
   JSONencoder["status"] = status_S2;                                                    // key/object its = status
-  JSONencoder["temp_data"] = data_S2;                                                       // key/object its = temp_data
+  JSONencoder["temp_data"] = data_S2;                                                   // key/object its = temp_data
   JSONencoder["flagsensor"] = 1;                                                        // key/object its = limit
 
   char JSONmessageBuffer[500];                                                          // array of char JSONmessageBuffer is 500
@@ -366,7 +388,13 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
 
   /* error correction */
   if(client.publish("PSI/countingbenang/datacollector/reportdata", JSONmessageBuffer) == true){
-    digitalWrite(COM2, LOW);
+    if(status_S2 == 0){
+      digitalWrite(COM2, LOW);
+    }
+    nuPub++;
+    if(nuPub == 60001){
+      nuPub = 0;
+    }
     #ifdef DEBUG
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
     #endif
@@ -383,23 +411,27 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(7);                                 
 //==========================================================================================================================================//
 void sendCommand(){
     currentMillis = millis();
-    if((currentMillis - previousMillis >= timer1_from)&&(currentMillis - previousMillis < timer1_until)){
+    if((currentMillis - previousMillis >= timer1_from) && (currentMillis - previousMillis < timer1_until)){
+        currentMillis_Cycle1 = millis();
         #ifdef DEBUG
         Serial.println("");
         Serial.println("---------------------------------------------------------------");  
         Serial.println("Send command to sensor module 1 (TX3)");
         Serial.println("");
         #endif // DEBUG
+        digitalWrite(COM1, HIGH);                                                  // on LED indicator communication 1
         Serial3.print("S_1\n");
     } else {
-        if((currentMillis - previousMillis >= timer2_from)&&(currentMillis - previousMillis < timer2_until)){
-           previousMillis = currentMillis;  
+        if((currentMillis - previousMillis >= timer2_from) && (currentMillis - previousMillis < timer2_until)){  
+            previousMillis = currentMillis;
+           currentMillis_Cycle2 = millis();
             #ifdef DEBUG
             Serial.println("");
             Serial.println("---------------------------------------------------------------");  
             Serial.println("Send command to sensor module 2 (TX3)");
             Serial.println("");
             #endif // DEBUG
+            digitalWrite(COM2, HIGH);                                                  // on LED indicator communication 2
             Serial3.print("S_2\n");
         } 
     }
@@ -417,12 +449,14 @@ void showData(){
   /* Show data for sensor 1 */
   if(prefix_A){
     if(stringComplete){
+      timeCycle1 = millis() - currentMillis_Cycle1;
       #ifdef DEBUG
+      Serial.print("One timeCycle communication1: "); Serial.println(timeCycle1);
       Serial.println("Prefix_A --OK--");
       Serial.print("incomming data= ");Serial.print(incomingData);
       #endif
       
-      digitalWrite(COM1, HIGH);                                                  // on LED indicator communication 1
+      errorCheck_S1 = 0;
       status_S1 = 0;
       /* remove header and footer */
       first = incomingData.indexOf('A');                                         // determine indexOf 'A'
@@ -472,12 +506,14 @@ void showData(){
     /* Show data for sensor 2 */
     if(prefix_B){
       if(stringComplete){
+      timeCycle2 = millis() - currentMillis_Cycle2;
       #ifdef DEBUG
+      Serial.print("One timeCycle communication2: "); Serial.println(timeCycle2);
       Serial.println("Prefix_B --OK--");
       Serial.print("incomming data= ");Serial.print(incomingData);
-      #endif
+      #endif 
 
-      digitalWrite(COM2, HIGH);                                                  // on LED indicator communication 2
+      errorCheck_S2 = 0;
       status_S2 = 0;
       first = incomingData.indexOf('B');                                         // determine indexOf 'A'
       last = incomingData.lastIndexOf('/n');                                     // determine lastInndexOf '\n
@@ -500,7 +536,6 @@ void showData(){
         } else {
         countData_S2 = diffData_S2;
       }
-      
       
       // Publish Data
       if(flagreply == 1){
@@ -538,12 +573,16 @@ void errorData(){
     errorCheck_S1++;
     errorCheck_S2++;
   }
+
   if(errorCheck_S1 == 3){
     status_S1 = 1;
     errorCheck_S1 = 0;
+    #ifdef DEBUG
     Serial.println("=========================");
     Serial.println("        ERROR !!!        ");
-    Serial.print("status S1= ");Serial.println(status_S1); 
+    Serial.print("status S1= ");Serial.println(status_S1);
+    #endif 
+
     // Publish Data
     if(flagreply == 1){
        publishData_S1();
@@ -553,15 +592,20 @@ void errorData(){
         Serial.println("Not reply anyone data !!!");
         #endif // DEBUG
     } 
+    #ifdef DEBUG
     Serial.println("=========================");
     Serial.println(" ");
+    #endif
   }
+
   if(errorCheck_S2 == 3){
     status_S2 = 1;
     errorCheck_S2 = 0;
+    #ifdef DEBUG
     Serial.println("=========================");
     Serial.println("        ERROR !!!        ");
     Serial.print("status S2= ");Serial.println(status_S2); 
+    #endif
     // Publish Data
     if(flagreply == 1){
        publishData_S2();
@@ -571,8 +615,10 @@ void errorData(){
         Serial.println("Not reply anyone data !!!");
         #endif // DEBUG
     } 
+    #ifdef DEBUG
     Serial.println("=========================");
     Serial.println(" ");
+    #endif
   }
 }
 
@@ -637,17 +683,6 @@ void syncDataTimeRTC(){
 }
 
 
-// //==========================================================================================================================================//
-// //================================================|   Procedure Sync lastDatafrom Server   |================================================//                                         
-// //==========================================================================================================================================//
-// void syncLastDataServer(){
-//   if(flagreply == 1){
-//     syncLastData_S1 = true; syncLastData_S2 = true;
-//     serverLastData_S1 = serverLastMAC01; serverLastData_S2 = serverLastMAC02; 
-//   }
-// }
-
-
 //==========================================================================================================================================//
 //=========================================================|   Setup Program    |===========================================================//                                         
 //==========================================================================================================================================//
@@ -666,7 +701,7 @@ void setup(){
     RTC.begin();
     RTC.adjust(DateTime(__DATE__, __TIME__));       //Adjust data and time from PC every startup
     // RTC.adjust(DateTime(2019, 8, 21, timeClient.getHours(), timeClient.getMinutes(), timeClient.getSeconds()));
-
+ 
     /* Setup Ethernet connection */
     Ethernet.begin(mac, ip);
 
@@ -694,13 +729,12 @@ void setup(){
 //==========================================================================================================================================//
 void loop(){
     syncDataTimeRTC();
-    // syncLastDataServer();
     reconnect();
     sendCommand();
     showData();
     errorData();
     if(trig_publishFlagRestart){
-       trig_publishFlagRestart = false;
+      trig_publishFlagRestart = false;
       publishFlagRestart();
     }
     client.loop();   // Use to loop callback function
@@ -725,11 +759,9 @@ void serialEvent3(){
     incomingData += inChar;
     if(inChar == 'A'){
       prefix_A = true;
-      errorCheck_S1 = 0;
     } else {
       if(inChar == 'B'){
       prefix_B = true;
-      errorCheck_S2 = 0;
       } else {
         if(inChar == '\n'){ 
           stringComplete = true;
