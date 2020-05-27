@@ -45,16 +45,14 @@ PubSubClient client(server, 1883, callback, ethClient);
 
 /* variable timer millis */
 unsigned long currentMillis = 0;  
-unsigned long currentMillis_errorData = 0;         
 unsigned long currentMillis_LastValueS1 = 0;          
-unsigned long currentMillis_LastValueS2 = 0;  
+unsigned long currentMillis_LastValueS2 = 0;
+unsigned long currentMillis_errorData = 0;         
 unsigned long currentMillis_errorAttemping = 0;
-unsigned long previousMillis_errorAttemping = 0;        
 unsigned long previousMillis = 0;
+unsigned long previousMillis_errorAttemping = 0;        
 
 /* variable use to be calcuate timecycle program */
-unsigned long currentMillis_Cycle1 = 0;
-unsigned long currentMillis_Cycle2 = 0;
 unsigned long timeCycle1 = 0;
 unsigned long timeCycle2 = 0;
 
@@ -412,7 +410,6 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(8);                                 
 void sendCommand(){
     currentMillis = millis();
     if((currentMillis - previousMillis >= timer1_from) && (currentMillis - previousMillis < timer1_until)){
-        currentMillis_Cycle1 = millis();
         #ifdef DEBUG
         Serial.println("");
         Serial.println("---------------------------------------------------------------");  
@@ -424,7 +421,6 @@ void sendCommand(){
     } else {
         if((currentMillis - previousMillis >= timer2_from) && (currentMillis - previousMillis < timer2_until)){  
             previousMillis = currentMillis;
-           currentMillis_Cycle2 = millis();
             #ifdef DEBUG
             Serial.println("");
             Serial.println("---------------------------------------------------------------");  
@@ -449,9 +445,7 @@ void showData(){
   /* Show data for sensor 1 */
   if(prefix_A){
     if(stringComplete){
-      timeCycle1 = millis() - currentMillis_Cycle1;
       #ifdef DEBUG
-      Serial.print("One timeCycle communication1: "); Serial.println(timeCycle1);
       Serial.println("Prefix_A --OK--");
       Serial.print("incomming data= ");Serial.print(incomingData);
       #endif
@@ -506,9 +500,7 @@ void showData(){
     /* Show data for sensor 2 */
     if(prefix_B){
       if(stringComplete){
-      timeCycle2 = millis() - currentMillis_Cycle2;
       #ifdef DEBUG
-      Serial.print("One timeCycle communication2: "); Serial.println(timeCycle2);
       Serial.println("Prefix_B --OK--");
       Serial.print("incomming data= ");Serial.print(incomingData);
       #endif 
@@ -694,6 +686,7 @@ void setup(){
     /* Mode pin definition */
     pinMode(COM1, OUTPUT);
     pinMode(COM2, OUTPUT);
+    pinMode(COM3, OUTPUT);
     pinMode(EMG_BUTTON, INPUT_PULLUP);
     
     /* Callibration RTC module with NTP Server */
@@ -730,8 +723,10 @@ void setup(){
 void loop(){
     syncDataTimeRTC();
     reconnect();
-    sendCommand();
-    showData();
+    if(flagreply == 1){
+      sendCommand();
+      showData();
+    }
     errorData();
     if(trig_publishFlagRestart){
       trig_publishFlagRestart = false;
@@ -780,5 +775,3 @@ void executeFlagrestart(){
     trig_publishFlagRestart = true;
   }
 }
-
-
