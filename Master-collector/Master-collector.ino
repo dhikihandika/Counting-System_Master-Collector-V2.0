@@ -169,7 +169,7 @@ void reconnect(){
       Serial.println("connected");
       #endif
       errorCheck_S1 = 0; errorCheck_S2 = 0;
-      currentMillis = millis(); previousMillis = millis(); currentMillis_errorData = millis(); 
+      currentMillis = millis(); previousMillis = millis();
       // Publish variable startup system
       publishFlagStart();
     }else{
@@ -552,15 +552,15 @@ void showData(){
       #endif //DEBUG
       } 
     } 
-  }
-}
+  } 
+} 
 
 
 //==========================================================================================================================================//
 //==================================================|     Procedure error data        |=====================================================//                                         
 //==========================================================================================================================================//
 void errorData(){
-  if((millis() - currentMillis_errorData)>=5000){
+  if((millis() - currentMillis_errorData)>=6000){
     currentMillis_errorData = millis();
     errorCheck_S1++;
     errorCheck_S2++;
@@ -723,10 +723,8 @@ void setup(){
 void loop(){
     syncDataTimeRTC();
     reconnect();
-    if(flagreply == 1){
-      sendCommand();
-      showData();
-    }
+    sendCommand();
+    showData();
     errorData();
     if(trig_publishFlagRestart){
       trig_publishFlagRestart = false;
