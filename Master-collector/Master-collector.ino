@@ -14,12 +14,13 @@ Date    : 18/03/2020
 #include <PubSubClient.h>                           // Add library PubSubClient MQTT
 
 #define DEBUG
+// #define DEBUGV
 
-#define limitData 60000                             // limit countData
-#define timer1_from 5000                                // timer send command to sensor module 1
-#define timer2_from 10000                                // timer send command to sensor module 2
-#define timer1_until 5005                           // timer send command to sensor module 1
-#define timer2_until 10005                          // timer send command to sensor module 2
+#define limitData 60000                             
+#define timer1_from 5000                            
+#define timer2_from 10000                           
+#define timer1_until 5005                           
+#define timer2_until 10005                          
 
 #define EMG_BUTTON 2                                // define Emergency Button
 
@@ -45,73 +46,57 @@ PubSubClient client(server, 1883, callback, ethClient);
 
 /* variable timer millis */
 unsigned long currentMillis = 0;  
-unsigned long currentMillis_LastValueS1 = 0;          
-unsigned long currentMillis_LastValueS2 = 0;
+unsigned long currentMillis_LastValueS1 = 0;unsigned long currentMillis_LastValueS2 = 0;
 unsigned long currentMillis_errorData = 0;         
 unsigned long currentMillis_errorAttemping = 0;
 unsigned long previousMillis = 0;
 unsigned long previousMillis_errorAttemping = 0;        
 
 /* variable use to be calcuate timecycle program */
-unsigned long timeCycle1 = 0;
-unsigned long timeCycle2 = 0;
+unsigned long timeCycle1 = 0;unsigned long timeCycle2 = 0;
 
 /* global variable to save date and time from RTC */
 int year, month, day, hour, minute, second; 
 String stringyear, stringmonth, stringday, stringhour, stringminute, stringsecond;
 
 /* variable incoming serverLastData */
-uint32_t serverLastData_S1 = 0;
-uint32_t serverLastData_S2 = 0;
+uint32_t serverLastData_S1 = 0;uint32_t serverLastData_S2 = 0;
 
 /* variable last incoming data */
-uint32_t lastData_S1 = 0;
-uint32_t lastData_S2 = 0;
+uint32_t lastData_S1 = 0;uint32_t lastData_S2 = 0;
 
 /* variable incoming data (current data) */
-uint32_t data_S1 = 0;
-uint32_t data_S2 = 0;
+uint32_t data_S1 = 0;uint32_t data_S2 = 0;
 
 /* variable number initiale with "1" */
 uint32_t nuPub = 1; 
 
 /* variable data publish */
-uint32_t countData_S1 = 0;
-uint32_t countData_S2 = 0;
+uint32_t countData_S1 = 0;uint32_t countData_S2 = 0;
 
 /* variable status sensor */
-int status_S1 = 0;
-int status_S2 = 0;
+int status_S1 = 0;int status_S2 = 0;
 
 /* varibale indexOf data */
-int first = 0;
-int last = 0;
+int first = 0;int last = 0;
 
 /* varibale check status data */
-int errorCheck_S1 = 0;
-int errorCheck_S2 = 0;
+int errorCheck_S1 = 0;int errorCheck_S2 = 0;
 
 String incomingData = "";                           // a String to hold incoming data
 bool stringComplete = false;                        // whether the string is complete
 
 /* varible check boolean prefix of data */
-bool prefix_A = false;
-bool prefix_B = false;
-bool syncLastData_S1 = false;
-bool syncLastData_S2 = false;
+bool prefix_A = false;bool prefix_B = false;
+bool syncLastData_S1 = false;bool syncLastData_S2 = false;
 
 /* variable check boolean to identify subscribe */
 bool trig_publishFlagRestart = false;
 
 String time;
-int flagreply = 0;
-int statusReply = 0;
-int statusTime = 0;
-int serverLastMAC01 = 0;
-int serverLastMAC02 = 0;
-int QoS_0 = 0;
-int QoS_1 = 1;
-int QoS_2 = 2;
+int flagreply = 0;int statusReply = 0;int statusTime = 0;
+int serverLastMAC01 = 0;int serverLastMAC02 = 0;
+int QoS_0 = 0;int QoS_1 = 1;int QoS_2 = 2;
 int ledState = LOW;             // ledState used to set the LED
 
 
@@ -122,9 +107,7 @@ char data[80];
 DynamicJsonBuffer jsonBuffer;
 void callback(char* topic, byte* payload, unsigned int length){
   #ifdef DEBUG
-  Serial.print("Message arrived in topic: ");
   Serial.println(topic);
-  Serial.print("Message:");
   #endif
 
   // Parse data 
@@ -168,13 +151,14 @@ void reconnect(){
       #ifdef DEBUG
       Serial.println("connected");
       #endif
-      errorCheck_S1 = 0; errorCheck_S2 = 0;
+      errorCheck_S1 = 0; errorCheck_S2 = 0;status_S1 = 0;status_S2 = 0;
       currentMillis = millis(); previousMillis = millis();
       // Publish variable startup system
       publishFlagStart();
+      digitalWrite(COM1,LOW);digitalWrite(COM2,LOW);digitalWrite(COM3,LOW);
     }else{
       currentMillis_errorAttemping = millis();
-      #ifdef DEBUG
+      #ifdef DEBUGV
       Serial.print("failed, rc=");  
       Serial.print(client.state());
       Serial.println("try again 5 second");
@@ -198,7 +182,7 @@ void reconnect(){
 //==========================================================================================================================================//
 void publishFlagStart(){
     if(client.connect("arduinoClient")){
-      #ifdef DEBUG
+      #ifdef DEBUGV
       Serial.println("connected");
       #endif
 
@@ -213,7 +197,7 @@ void publishFlagStart(){
       char buffermessage[300];
       root.printTo(buffermessage, sizeof(buffermessage));
                                       
-      #ifdef DEBUG
+      #ifdef DEBUGV
       Serial.println("Sending message to MQTT topic...");
       Serial.println(buffermessage);
       #endif
@@ -221,13 +205,13 @@ void publishFlagStart(){
       client.publish("PSI/countingbenang/datacollector/startcontroller", buffermessage);
 
       if (client.publish("PSI/countingbenang/datacollector/startcontroller", buffermessage) == true){
-        #ifdef DEBUG
+        #ifdef DEBUGV
         Serial.println("Succes sending message");
         Serial.println("--------------------------------------------");
         Serial.println("");
         #endif
       } else {
-      #ifdef DEBUG
+      #ifdef DEBUGV
       Serial.println("ERROR PUBLISHING");
       Serial.println("--------------------------------------------");
       Serial.println("");
@@ -242,7 +226,7 @@ void publishFlagStart(){
 //==========================================================================================================================================//
 /* publish data sensor 1 */
 void publishFlagRestart(){
-  #ifdef DEBUG
+  #ifdef DEBUGV
   Serial.println("Publish FlagRestart !!!");
   #endif
 
@@ -263,7 +247,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(2);                                 
   char JSONmessageBuffer[100];                                                          // array of char JSONmessageBuffer is 100
   JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));                    // “minified” a JSON document
 
-  #ifdef DEBUG
+  #ifdef DEBUGV
   Serial.println("Sending message to MQTT topic...");                                   // line debugging
   Serial.println(JSONmessageBuffer);                                                    // line debugging
   #endif
@@ -272,11 +256,11 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(2);                                 
 
   /* error correction */
   if(client.publish("PSI/countingbenang/datacollector/startcontroller", JSONmessageBuffer) == true){
-    #ifdef DEBUG
+    #ifdef DEBUGV
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
     #endif
     } else {
-      #ifdef DEBUG
+      #ifdef DEBUGV
       Serial.println("ERROR PUBLISHING");
       #endif
     }
@@ -288,7 +272,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(2);                                 
 //==========================================================================================================================================//
 /* publish data sensor 1 */
 void publishData_S1(){
-  #ifdef DEBUG
+  #ifdef DEBUGV
   Serial.print("Publish data S1= ");
   Serial.println(data_S1);                                                              // line debugging
   #endif
@@ -318,7 +302,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(8);                                 
   char JSONmessageBuffer[500];                                                          // array of char JSONmessageBuffer is 500
   JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));                    // “minified” a JSON document
 
-  #ifdef DEBUG
+  #ifdef DEBUGV
   Serial.println("Sending message to MQTT topic...");                                   // line debugging
   Serial.println(JSONmessageBuffer);                                                    // line debugging
   #endif
@@ -338,7 +322,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(8);                                 
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
     #endif
   } else {
-    #ifdef DEBUG
+    #ifdef DEBUGV
     Serial.println("ERROR PUBLISHING");
     #endif
   }
@@ -347,7 +331,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(8);                                 
 
 /* publish data sensor 2 */
 void publishData_S2(){
-  #ifdef DEBUG
+  #ifdef DEBUGV
   Serial.print("Publish data S2= ");
   Serial.println(data_S2);                                                              // line debugging
   #endif
@@ -377,7 +361,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(8);                                 
   char JSONmessageBuffer[500];                                                          // array of char JSONmessageBuffer is 500
   JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));                    // “minified” a JSON document
 
-  #ifdef DEBUG
+  #ifdef DEBUGV
   Serial.println("Sending message to MQTT topic...");                                   // line debugging
   Serial.println(JSONmessageBuffer);                                                    // line debugging
   #endif
@@ -397,7 +381,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(8);                                 
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
     #endif
   } else {
-    #ifdef DEBUG
+    #ifdef DEBUGV
     Serial.println("ERROR PUBLISHING");
     #endif
   }
@@ -439,8 +423,7 @@ void sendCommand(){
 //==========================================================================================================================================//
 void showData(){
   /* variable diff data */
-  int diffData_S1 = 0;
-  int diffData_S2 = 0;
+  int diffData_S1 = 0;int diffData_S2 = 0;
 
   /* Show data for sensor 1 */
   if(prefix_A){
@@ -450,10 +433,9 @@ void showData(){
       Serial.print("incomming data= ");Serial.print(incomingData);
       #endif
       
-      errorCheck_S1 = 0;
-      status_S1 = 0;
+      errorCheck_S1 = 0; status_S1 = 0;
       /* remove header and footer */
-      first = incomingData.indexOf('A');                                         // determine indexOf 'A'
+      first = incomingData.indexOf('A');                                        // determine indexOf 'A'
       last = incomingData.lastIndexOf('/n');                                     // determine lastInndexOf '\n
 
       /* Parse incoming data to particular variable */ 
@@ -462,9 +444,7 @@ void showData(){
       datasensor1.remove(datasensor1.length()-1, datasensor1.length() - 0);      // remove fotter incomming data (/n)
       data_S1 = datasensor1.toInt();                                             // covert string to integer datasensor1 and save to 'data_S1'
 
-      stringComplete = false;
-      prefix_A = false;
-      incomingData = "";
+      stringComplete = false;prefix_A = false;incomingData = "";
 
       //Processing Data                                       
       diffData_S1 = data_S1 - lastData_S1;
@@ -490,7 +470,7 @@ void showData(){
         lastData_S1 = data_S1;
       }
       
-      #ifdef DEBUG
+      #ifdef DEBUGV
       Serial.print("current data_S1= ");Serial.print(data_S1); 
       Serial.print(" | status S1= ");Serial.println(status_S1); 
       Serial.println("------------------------------||-------------------------------\n");                                              
@@ -517,9 +497,7 @@ void showData(){
       datasensor2.remove(datasensor2.length()-1, datasensor2.length() - 0);      // remove fotter incomming data (/n)
       data_S2 = datasensor2.toInt();                                             // covert string to integer datasensor1 and save to 'data_S1'
 
-      stringComplete = false;
-      prefix_B = false;
-      incomingData = "";
+      stringComplete = false;prefix_B = false;incomingData = "";
 
       // Processing Data
       diffData_S2 = data_S2 - lastData_S2;
@@ -545,7 +523,7 @@ void showData(){
         lastData_S2 = data_S2;
       }
 
-      #ifdef DEBUG
+      #ifdef DEBUGV
       Serial.print("current data_S2= ");Serial.print(data_S2); 
       Serial.print(" | status S2= ");Serial.println(status_S2); 
       Serial.println("------------------------------||-------------------------------\n");                                                  
@@ -562,13 +540,11 @@ void showData(){
 void errorData(){
   if((millis() - currentMillis_errorData)>=6000){
     currentMillis_errorData = millis();
-    errorCheck_S1++;
-    errorCheck_S2++;
+    errorCheck_S1++;errorCheck_S2++;
   }
 
   if(errorCheck_S1 == 3){
-    status_S1 = 1;
-    errorCheck_S1 = 0;
+    status_S1 = 1;errorCheck_S1 = 0;
     #ifdef DEBUG
     Serial.println("=========================");
     Serial.println("        ERROR !!!        ");
@@ -591,8 +567,7 @@ void errorData(){
   }
 
   if(errorCheck_S2 == 3){
-    status_S2 = 1;
-    errorCheck_S2 = 0;
+    status_S2 = 1;errorCheck_S2 = 0;
     #ifdef DEBUG
     Serial.println("=========================");
     Serial.println("        ERROR !!!        ");
@@ -621,35 +596,16 @@ void errorData(){
 void RTCprint(){
   DateTime now = RTC.now();
 
-  #ifdef DEBUG
-  Serial.print("date : ");
-  Serial.print(now.day(), DEC);
-  Serial.print("/");
-  Serial.print(now.month(), DEC);
-  Serial.print("/");
-  Serial.println(now.year(), DEC);
-  Serial.print("clock : ");
-  Serial.print(now.hour(), DEC);
-  Serial.print(":");
-  Serial.print(now.minute(), DEC);
-  Serial.print(":");
-  Serial.print(now.second(), DEC);
-  Serial.println(" WIB");
+  #ifdef DEBUGV
+  Serial.print("date : ");Serial.print(now.day(), DEC);Serial.print("/");Serial.print(now.month(), DEC);Serial.print("/");Serial.println(now.year(), DEC);Serial.print("clock : ");
+  Serial.print(now.hour(), DEC);Serial.print(":");Serial.print(now.minute(), DEC);Serial.print(":");Serial.print(now.second(), DEC);Serial.println(" WIB");
   #endif
 
-  year = now.year(), DEC;
-  month = now.month(), DEC;
-  day = now.day(), DEC;
-  hour = now.hour(), DEC;
-  minute = now.minute(), DEC;
-  second = now.second(), DEC;
+  year = now.year(), DEC;month = now.month(), DEC;day = now.day(), DEC;
+  hour = now.hour(), DEC;minute = now.minute(), DEC;second = now.second(), DEC;
   
-  stringyear= String(year);
-  stringmonth= String(month);
-  stringday= String(day);
-  stringhour= String(hour);
-  stringminute= String(minute);
-  stringsecond= String(second);
+  stringyear= String(year);stringmonth= String(month);stringday= String(day);
+  stringhour= String(hour);stringminute= String(minute);stringsecond= String(second);
 }
 
 
@@ -658,16 +614,11 @@ void RTCprint(){
 //==========================================================================================================================================//
 void syncDataTimeRTC(){
   if(statusTime == 1){
-    status_S1 = 0;
-    status_S2 = 0;
+    status_S1 = 0;status_S2 = 0;
 
     /* Parse timestamp value */
-    year = time.substring(1,5).toInt();
-    month = time.substring(6,8).toInt();
-    day = time.substring(9,11).toInt();
-    hour = time.substring(12,14).toInt();
-    minute = time.substring(15,17).toInt();
-    second = time.substring(18,20).toInt();
+    year = time.substring(1,5).toInt();month = time.substring(6,8).toInt();day = time.substring(9,11).toInt();
+    hour = time.substring(12,14).toInt();minute = time.substring(15,17).toInt();second = time.substring(18,20).toInt();
 
     RTC.adjust(DateTime(year, month, day, hour, minute, second));
     statusTime = 0;
@@ -680,18 +631,13 @@ void syncDataTimeRTC(){
 //==========================================================================================================================================//
 void setup(){
     /* Configuration baud rate serial */
-    Serial.begin(9600);
-    Serial3.begin(9600);
+    Serial.begin(9600);Serial3.begin(9600);
 
     /* Mode pin definition */
-    pinMode(COM1, OUTPUT);
-    pinMode(COM2, OUTPUT);
-    pinMode(COM3, OUTPUT);
-    pinMode(EMG_BUTTON, INPUT_PULLUP);
+    pinMode(COM1, OUTPUT);pinMode(COM2, OUTPUT);pinMode(COM3, OUTPUT);pinMode(EMG_BUTTON, INPUT_PULLUP);
     
     /* Callibration RTC module with NTP Server */
-    Wire.begin();
-    RTC.begin();
+    Wire.begin();RTC.begin();
     RTC.adjust(DateTime(__DATE__, __TIME__));       //Adjust data and time from PC every startup
     // RTC.adjust(DateTime(2019, 8, 21, timeClient.getHours(), timeClient.getMinutes(), timeClient.getSeconds()));
  
