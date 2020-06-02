@@ -12,6 +12,7 @@ Date    : 18/03/2020
 #include <SPI.h>                                    // Add library protocol communication SPI
 #include <ArduinoJson.h>                            // Add library arduino json 
 #include <PubSubClient.h>                           // Add library PubSubClient MQTT
+#include <avr/wdt.h>                                // Add library WDT
 
 #define DEBUG
 // #define DEBUGV
@@ -94,8 +95,7 @@ bool syncLastData_S1 = false;bool syncLastData_S2 = false;
 bool trig_publishFlagRestart = false;
 
 String time;
-int flagreply = 0;int statusReply = 0;int statusTime = 0;
-int serverLastMAC01 = 0;int serverLastMAC02 = 0;
+int flagreply = 0;int statusReply = 0;int statusTime = 0;int serverLastMAC01 = 0;int serverLastMAC02 = 0;
 int QoS_0 = 0;int QoS_1 = 1;int QoS_2 = 2;
 int ledState = LOW;             // ledState used to set the LED
 
@@ -106,20 +106,20 @@ int ledState = LOW;             // ledState used to set the LED
 char data[80];
 DynamicJsonBuffer jsonBuffer;
 void callback(char* topic, byte* payload, unsigned int length){
-  #ifdef DEBUG
+  #ifdef DEBUGV
   Serial.println(topic);
   #endif
 
   // Parse data 
   char inData[128];                                 // buffer callback only allow data 128 byte
   for (int i = 0; i < length; i++){
-    #ifdef DEBUG
+    #ifdef DEBUGV
     Serial.print((char)payload[i]);
     #endif
     inData[(i - 0)] = (const char*)payload[i];
   }
 
-  #ifdef DEBUG
+  #ifdef DEBUGV
   Serial.println();
   Serial.println("-----------------------");
   #endif
@@ -144,11 +144,11 @@ void callback(char* topic, byte* payload, unsigned int length){
 //==========================================================================================================================================//
 void reconnect(){
   while(!client.connected()){
-    #ifdef DEBUG
+    #ifdef DEBUGV
     Serial.print("Attemping MQTT connection...");
     #endif
     if(client.connect("arduinoClient")){
-      #ifdef DEBUG
+      #ifdef DEBUGV
       Serial.println("connected");
       #endif
       errorCheck_S1 = 0; errorCheck_S2 = 0;status_S1 = 0;status_S2 = 0;
@@ -318,7 +318,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(8);                                 
     if(nuPub == 600001){
       nuPub = 0;
     }
-    #ifdef DEBUG
+    #ifdef DEBUGV
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
     #endif
   } else {
@@ -377,7 +377,7 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(8);                                 
     if(nuPub == 60001){
       nuPub = 0;
     }
-    #ifdef DEBUG
+    #ifdef DEBUGV
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
     #endif
   } else {
@@ -428,7 +428,7 @@ void showData(){
   /* Show data for sensor 1 */
   if(prefix_A){
     if(stringComplete){
-      #ifdef DEBUG
+      #ifdef DEBUGV
       Serial.println("Prefix_A --OK--");
       Serial.print("incomming data= ");Serial.print(incomingData);
       #endif
@@ -459,7 +459,7 @@ void showData(){
          publishData_S1();
       } else {
          publishFlagStart();
-        #ifdef DEBUG
+        #ifdef DEBUGV
         Serial.println("Not reply anyone data !!!");
         #endif // DEBUG
       } 
@@ -480,7 +480,7 @@ void showData(){
     /* Show data for sensor 2 */
     if(prefix_B){
       if(stringComplete){
-      #ifdef DEBUG
+      #ifdef DEBUGV
       Serial.println("Prefix_B --OK--");
       Serial.print("incomming data= ");Serial.print(incomingData);
       #endif 
@@ -512,7 +512,7 @@ void showData(){
          publishData_S2();
       } else {
          publishFlagStart();
-        #ifdef DEBUG
+        #ifdef DEBUGV
         Serial.println("Not reply anyone data !!!");
         #endif // DEBUG
       } 
@@ -545,7 +545,7 @@ void errorData(){
 
   if(errorCheck_S1 == 3){
     status_S1 = 1;errorCheck_S1 = 0;
-    #ifdef DEBUG
+    #ifdef DEBUGV
     Serial.println("=========================");
     Serial.println("        ERROR !!!        ");
     Serial.print("status S1= ");Serial.println(status_S1);
@@ -556,11 +556,11 @@ void errorData(){
        publishData_S1();
     } else {
         publishFlagStart();
-        #ifdef DEBUG
+        #ifdef DEBUGV
         Serial.println("Not reply anyone data !!!");
         #endif // DEBUG
     } 
-    #ifdef DEBUG
+    #ifdef DEBUGV
     Serial.println("=========================");
     Serial.println(" ");
     #endif
@@ -568,7 +568,7 @@ void errorData(){
 
   if(errorCheck_S2 == 3){
     status_S2 = 1;errorCheck_S2 = 0;
-    #ifdef DEBUG
+    #ifdef DEBUGV
     Serial.println("=========================");
     Serial.println("        ERROR !!!        ");
     Serial.print("status S2= ");Serial.println(status_S2); 
@@ -578,11 +578,11 @@ void errorData(){
        publishData_S2();
     } else {
         publishFlagStart();
-        #ifdef DEBUG
+        #ifdef DEBUGV
         Serial.println("Not reply anyone data !!!");
         #endif // DEBUG
     } 
-    #ifdef DEBUG
+    #ifdef DEBUGV
     Serial.println("=========================");
     Serial.println(" ");
     #endif
@@ -660,6 +660,9 @@ void setup(){
 
     /* attachInterrupt Here */
     attachInterrupt(digitalPinToInterrupt(EMG_BUTTON), executeFlagrestart, LOW);
+
+    /* actived WDT */
+    wdt_enable(WDTO_4S);
 }
 
 
@@ -667,11 +670,7 @@ void setup(){
 //===========================================================|   Main Loop    |=============================================================//                                         
 //==========================================================================================================================================//
 void loop(){
-    syncDataTimeRTC();
-    reconnect();
-    sendCommand();
-    showData();
-    errorData();
+    syncDataTimeRTC();reconnect();sendCommand();showData();errorData(); wdt_reset();
     if(trig_publishFlagRestart){
       trig_publishFlagRestart = false;
       publishFlagRestart();

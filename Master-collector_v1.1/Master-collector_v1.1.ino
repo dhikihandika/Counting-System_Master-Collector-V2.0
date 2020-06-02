@@ -30,10 +30,10 @@ RTC_DS1307 RTC;                                     // Define type RTC as RTC_DS
 
 /* configur etheret communication */
 byte mac[]  = {0xDE, 0xED, 0xBA, 0xFE, 0xFE, 0xED };                // MAC Address by see sticker on Arduino Etherent Shield or self determine
-IPAddress ip(192, 168, 0, 188);                                     // IP ethernet shield assigned, in one class over the server
-IPAddress server(192, 168, 0, 180);                                 // IP LAN (Set ststic IP in PC/Server)
-// IPAddress ip(192, 168, 12, 188);                                 // IP ethernet shield assigned, in one class over the server
-// IPAddress server(192, 168, 12, 12);                              // IP LAN (Set ststic IP in PC/Server)
+// IPAddress ip(192, 168, 0, 188);                                     // IP ethernet shield assigned, in one class over the server
+// IPAddress server(192, 168, 0, 180);                                 // IP LAN (Set ststic IP in PC/Server)
+IPAddress ip(192, 168, 12, 188);                                 // IP ethernet shield assigned, in one class over the server
+IPAddress server(192, 168, 12, 12);                              // IP LAN (Set ststic IP in PC/Server)
 int portServer = 1883;                                              // Determine portServer MQTT connection
 
 /* Callback function header */
@@ -56,42 +56,38 @@ String stringyear, stringmonth, stringday, stringhour, stringminute, stringsecon
 
 
 /* variable last incoming data */
-uint32_t lastData_S1 = 0;
-uint32_t lastData_S2 = 0;
+uint32_t lastData_S1 = 0;uint32_t lastData_S2 = 0;
 
 /* variable incoming data (current data) */
-uint32_t data_S1 = 0;
-uint32_t data_S2 = 0;
+uint32_t data_S1 = 0;uint32_t data_S2 = 0;
 
 /* variable number initiale with "1" */
 uint32_t nuPub = 1; 
 
 /* variable status sensor */
-int status_S1 = 0;
-int status_S2 = 0;
+int status_S1 = 0;int status_S2 = 0;
 
 /* varibale indexOf data */
-int first = 0;
-int last = 0;
+int first = 0;int last = 0;
 
 /* varibale check status data */
-int errorCheck_S1 = 0;
-int errorCheck_S2 = 0;
+int errorCheck_S1 = 0;int errorCheck_S2 = 0;
 
 String incomingData = "";                           // a String to hold incoming data
 bool stringComplete = false;                        // whether the string is complete
 
 /* varible check boolean prefix of data */
-bool prefix_A = false;
-bool prefix_B = false;
+bool prefix_A = false;bool prefix_B = false;
 
 /* variable check boolean to identify subscribe */
 bool trig_publishFlagRestart = false;
 
-String time;
-int statusTime = 0;
-int QoS_0 = 0;
-int QoS_1 = 1;
+/* buffer varibale callback function */
+String time;int statusTime = 0;
+
+/* variable use ti identify QoS (Quality of Service) MQTT */
+int QoS_0 = 0;int QoS_1 = 1;
+
 int ledState = LOW;             // ledState used to set the LED
 
 
@@ -515,19 +511,8 @@ void RTCprint(){
   DateTime now = RTC.now();
 
   #ifdef DEBUG
-  Serial.print("date : ");
-  Serial.print(now.day(), DEC);
-  Serial.print("/");
-  Serial.print(now.month(), DEC);
-  Serial.print("/");
-  Serial.println(now.year(), DEC);
-  Serial.print("clock : ");
-  Serial.print(now.hour(), DEC);
-  Serial.print(":");
-  Serial.print(now.minute(), DEC);
-  Serial.print(":");
-  Serial.print(now.second(), DEC);
-  Serial.println(" WIB");
+  Serial.print("date : ");Serial.print(now.day(), DEC);Serial.print("/");Serial.print(now.month(), DEC);Serial.print("/");Serial.println(now.year(), DEC);
+  Serial.print("clock : ");Serial.print(now.hour(), DEC);Serial.print(":");Serial.print(now.minute(), DEC);Serial.print(":");Serial.print(now.second(), DEC);Serial.println(" WIB");
   #endif
 
   year = now.year(), DEC;month = now.month(), DEC;day = now.day(), DEC;
@@ -549,7 +534,6 @@ void syncDataTimeRTC(){
     hour = time.substring(12,14).toInt(); minute = time.substring(15,17).toInt();second = time.substring(18,20).toInt();
 
     RTC.adjust(DateTime(year, month, day, hour, minute, second));
-    statusTime = 0;
   }
 }
 
@@ -559,17 +543,13 @@ void syncDataTimeRTC(){
 //==========================================================================================================================================//
 void setup(){
     /* Configuration baud rate serial */
-    Serial.begin(9600);
-    Serial3.begin(9600);
+    Serial.begin(9600);Serial3.begin(9600);
 
     /* Mode pin definition */
-    pinMode(COM1, OUTPUT);
-    pinMode(COM2, OUTPUT);
-    pinMode(COM3, OUTPUT);
+    pinMode(COM1, OUTPUT);pinMode(COM2, OUTPUT);pinMode(COM3, OUTPUT);
     
     /* Callibration RTC module with NTP Server */
-    Wire.begin();
-    RTC.begin();
+    Wire.begin();RTC.begin();
     RTC.adjust(DateTime(__DATE__, __TIME__));       //Adjust data and time from PC every startup
     // RTC.adjust(DateTime(2019, 8, 21, timeClient.getHours(), timeClient.getMinutes(), timeClient.getSeconds()));
  
@@ -577,8 +557,7 @@ void setup(){
     Ethernet.begin(mac, ip);
 
     /* Setup Broker (server) MQTT Connection */
-    client.setServer(server, portServer);
-    client.setCallback(callback);
+    client.setServer(server, portServer);client.setCallback(callback);
     reconnect();
     
     /* Setup topic subscriber */
@@ -598,13 +577,9 @@ void setup(){
 //===========================================================|   Main Loop    |=============================================================//                                         
 //==========================================================================================================================================//
 void loop(){
-    reconnect();
-    syncDataTimeRTC();
-    sendCommand();
-    showData();
-    errorData();
+    reconnect();syncDataTimeRTC();sendCommand();showData();errorData();
     client.loop();   // Use to loop callback function
-    wdt_reset();
+    wdt_reset();     // Use to suddenly reset
 }
 
 
