@@ -670,12 +670,13 @@ void setup(){
 //===========================================================|   Main Loop    |=============================================================//                                         
 //==========================================================================================================================================//
 void loop(){
-    syncDataTimeRTC();reconnect();sendCommand();showData();errorData(); wdt_reset();
+    syncDataTimeRTC();reconnect();sendCommand();showData();errorData();
     if(trig_publishFlagRestart){
       trig_publishFlagRestart = false;
       publishFlagRestart();
     }
     client.loop();   // Use to loop callback function
+    wdt_reset();
 }
 
 
