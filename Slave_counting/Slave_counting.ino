@@ -74,6 +74,7 @@ void execution_2(){
 void setup() {
   Serial.begin(9600);                         // baudrate declaration of master serial monitor
   SerialOne.begin(9600);                      // baudrate declaration of slave serial monitor
+  SerialOne.println("START!!!");
   inputString.reserve(200);                   // declaration of datas that is served
   
   pinMode(sensor, INPUT_PULLUP);              // pin mode declaration of sensor 1 which is INPUT PULLUP
