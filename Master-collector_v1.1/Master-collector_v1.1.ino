@@ -544,6 +544,7 @@ void syncDataTimeRTC(){
 void setup(){
     /* Configuration baud rate serial */
     Serial.begin(9600);Serial3.begin(9600);
+    Serial.println("START!!!");
 
     /* Mode pin definition */
     pinMode(COM1, OUTPUT);pinMode(COM2, OUTPUT);pinMode(COM3, OUTPUT);

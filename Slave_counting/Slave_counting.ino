@@ -24,7 +24,7 @@ int LED_communication = 4;const byte LED_counting = 5;
 
 
 //===============================================Sensor, LED, and Counting Reading====================================================
-void active() {
+void active(){
   if(SensorNow == LOW){                         // if current sensor NOW
     count = count+1;                            // counting fomula
     digitalWrite(LED_counting, LOW);            // counting LED is on (although the logic is LOW) 
@@ -88,7 +88,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(sensor), active, CHANGE); // interrupt sensor for turning off LED
 
   /* actived WDT */
-  wdt_enable(WDTO_4S);
+  wdt_enable(WDTO_2S);
 }
 
 //=============================================================VOID LOOP=========================================================
@@ -140,3 +140,4 @@ void serialEvent() {
     }
   }
 }
+ 
