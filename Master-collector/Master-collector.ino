@@ -144,8 +144,8 @@ void callback(char* topic, byte* payload, unsigned int length){
 //==========================================================================================================================================//
 void reconnect(){
   while(!client.connected()){
-    #ifdef DEBUGV
-    Serial.print("Attemping MQTT connection...");
+    #ifdef DEBUG
+    Serial.println("RECNCT...");
     #endif
     if(client.connect("arduinoClient")){
       #ifdef DEBUGV
@@ -322,8 +322,8 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(8);                                 
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
     #endif
   } else {
-    #ifdef DEBUGV
-    Serial.println("ERROR PUBLISHING");
+    #ifdef DEBUG
+    Serial.println("ERRPUB_DATS1");
     #endif
   }
 }
@@ -381,8 +381,8 @@ const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(8);                                 
     Serial.println("SUCCESS PUBLISHING PAYLOAD");
     #endif
   } else {
-    #ifdef DEBUGV
-    Serial.println("ERROR PUBLISHING");
+    #ifdef DEBUG
+    Serial.println("ERRPUB_DATS2");
     #endif
   }
 }
@@ -459,8 +459,8 @@ void showData(){
          publishData_S1();
       } else {
          publishFlagStart();
-        #ifdef DEBUGV
-        Serial.println("Not reply anyone data !!!");
+        #ifdef DEBUG
+        Serial.println("NOAVLB_REPLY");
         #endif // DEBUG
       } 
 
@@ -512,8 +512,8 @@ void showData(){
          publishData_S2();
       } else {
          publishFlagStart();
-        #ifdef DEBUGV
-        Serial.println("Not reply anyone data !!!");
+        #ifdef DEBUG
+        Serial.println("NOAVLB_REPLY");
         #endif // DEBUG
       } 
 
@@ -545,6 +545,9 @@ void errorData(){
 
   if(errorCheck_S1 == 3){
     status_S1 = 1;errorCheck_S1 = 0;
+    #ifdef DEBUG
+    Serial.println("ERRGET_DATS1");
+    #endif
     #ifdef DEBUGV
     Serial.println("=========================");
     Serial.println("        ERROR !!!        ");
@@ -556,8 +559,8 @@ void errorData(){
        publishData_S1();
     } else {
         publishFlagStart();
-        #ifdef DEBUGV
-        Serial.println("Not reply anyone data !!!");
+        #ifdef DEBUG
+        Serial.println("NOAVLB_REPLY");
         #endif // DEBUG
     } 
     #ifdef DEBUGV
@@ -568,6 +571,9 @@ void errorData(){
 
   if(errorCheck_S2 == 3){
     status_S2 = 1;errorCheck_S2 = 0;
+    #ifdef DEBUG
+    Serial.println("ERRGET_DATS2");
+    #endif
     #ifdef DEBUGV
     Serial.println("=========================");
     Serial.println("        ERROR !!!        ");
@@ -578,8 +584,8 @@ void errorData(){
        publishData_S2();
     } else {
         publishFlagStart();
-        #ifdef DEBUGV
-        Serial.println("Not reply anyone data !!!");
+        #ifdef DEBUG
+        Serial.println("NOAVLB_REPLY");
         #endif // DEBUG
     } 
     #ifdef DEBUGV
