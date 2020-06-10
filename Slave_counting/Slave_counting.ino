@@ -7,6 +7,8 @@ Developed : March, 16th 2020
 #include <SoftwareSerial.h>       // initiation of software serial 
 SoftwareSerial SerialOne (11,12); // software serial pinout for RX, TX
 
+// #define DEBUG                     // use to debug SoftSerial
+
 String inputString = "";          // string for hold upcoming data
 bool stringComplete = false;      // initiation of string complete requirement
 bool sensor_read = false;         // status initiation of activation sensor reading (true/false)
@@ -40,7 +42,9 @@ void active(){
 //======================================================Slave-Master Serial Communication==============================================
 void execution_1(){                              
   if(stringComplete){                         // if string complete true
+    #ifdef DEBUG
     SerialOne.println(inputString);           // slave serial monitor printed the string that was entered
+    #endif
     digitalWrite(LED_communication, HIGH);    // communication LED is ON
 
     if(inputString == "S_1\n"){               // if the input string entered is sensor 1
@@ -56,7 +60,9 @@ void execution_1(){
 
 void execution_2(){                                 
   if(stringComplete){                         // if string complete true
+    #ifdef DEBUG
     SerialOne.println(inputString);           // slave serial monitor printed the string that was entered
+    #endif
     digitalWrite(LED_communication, HIGH);    // communication LED is ON
 
     if(inputString == "S_2\n"){               // if the input string entered is sensor 2
@@ -110,7 +116,9 @@ void loop() {
     }
   
     if(sensor_read == true){                  // if sensor already activated
+        #ifdef DEBUG
         SerialOne.println(count);             // slave serial monitor printed counting result
+        #endif
         sensor_read = false;                  // sensor deactivated
     }
 
