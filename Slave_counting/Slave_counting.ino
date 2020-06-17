@@ -73,7 +73,10 @@ void execution_2(){
     }
    inputString = "";                          // flexible input string initiation
    stringComplete = false;                    // string complete finished  
+  } else {
+    SerialOne.println("NO_GD");               // debug serial no get data
   }
+  
 }
 
 //===========================================================VOID SETUP==========================================================
