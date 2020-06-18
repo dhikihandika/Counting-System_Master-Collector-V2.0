@@ -98,6 +98,7 @@ String time;
 int flagreply = 0;int statusReply = 0;int statusTime = 0;int serverLastMAC01 = 0;int serverLastMAC02 = 0;
 int QoS_0 = 0;int QoS_1 = 1;int QoS_2 = 2;
 int ledState = LOW;             // ledState used to set the LED
+uint8_t flgStrErr = 0;
 
 
 //==========================================================================================================================================//
@@ -134,7 +135,7 @@ void callback(char* topic, byte* payload, unsigned int length){
   serverLastMAC02 = root["M2"];
   flagreply = root["flagreply"];
   time = currentTime;
-  lastData_S1 = serverLastMAC01; lastData_S2 = serverLastMAC02;
+  lastData_S1 = serverLastMAC01; lastData_S2 = serverLastMAC02; //dumb to lastData
   jsonBuffer.clear();
 } 
 
@@ -423,7 +424,7 @@ void sendCommand(){
 //==========================================================================================================================================//
 void showData(){
   /* variable diff data */
-  int diffData_S1 = 0;int diffData_S2 = 0;
+  int32_t diffData_S1 = 0;int32_t diffData_S2 = 0;
 
   /* Show data for sensor 1 */
   if(prefix_A){
@@ -449,7 +450,7 @@ void showData(){
       //Processing Data                                       
       diffData_S1 = data_S1 - lastData_S1;
       if(diffData_S1<0){
-        countData_S1 = data_S1; 
+        countData_S1 = data_S1;                 // operation when sensor hang/off
         } else {
         countData_S1 = diffData_S1;
       }
@@ -457,8 +458,10 @@ void showData(){
       // Publish Data
       if(flagreply == 1){
          publishData_S1();
+         flgStrErr = 0;
       } else {
          publishFlagStart();
+         flgStrErr++;
         #ifdef DEBUG
         Serial.println("NOAVLB_REPLY");
         #endif // DEBUG
@@ -510,8 +513,10 @@ void showData(){
       // Publish Data
       if(flagreply == 1){
          publishData_S2();
+         flgStrErr = 0;
       } else {
          publishFlagStart();
+         flgStrErr++;
         #ifdef DEBUG
         Serial.println("NOAVLB_REPLY");
         #endif // DEBUG
@@ -557,8 +562,10 @@ void errorData(){
     // Publish Data
     if(flagreply == 1){
        publishData_S1();
+       flgStrErr = 0;
     } else {
         publishFlagStart();
+        flgStrErr++;
         #ifdef DEBUG
         Serial.println("NOAVLB_REPLY");
         #endif // DEBUG
@@ -581,9 +588,11 @@ void errorData(){
     #endif
     // Publish Data
     if(flagreply == 1){
+       flgStrErr = 0;
        publishData_S2();
     } else {
         publishFlagStart();
+        flgStrErr++;
         #ifdef DEBUG
         Serial.println("NOAVLB_REPLY");
         #endif // DEBUG
@@ -631,7 +640,6 @@ void syncDataTimeRTC(){
   }
 }
 
-
 //==========================================================================================================================================//
 //=========================================================|   Setup Program    |===========================================================//                                         
 //==========================================================================================================================================//
@@ -672,18 +680,22 @@ void setup(){
     wdt_enable(WDTO_4S);
 }
 
+void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
 //==========================================================================================================================================//
 //===========================================================|   Main Loop    |=============================================================//                                         
 //==========================================================================================================================================//
 void loop(){
-    syncDataTimeRTC();reconnect();sendCommand();showData();errorData();
-    if(trig_publishFlagRestart){
-      trig_publishFlagRestart = false;
-      publishFlagRestart();
-    }
-    client.loop();   // Use to loop callback function
-    wdt_reset();
+  syncDataTimeRTC();reconnect();sendCommand();showData();errorData();
+  if(trig_publishFlagRestart){
+    trig_publishFlagRestart = false;
+    publishFlagRestart();
+  }
+  client.loop();   // Use to loop callback function
+  wdt_reset();
+  if(flgStrErr == 12){
+    resetFunc();  //call reset
+  }
 }
 
 
