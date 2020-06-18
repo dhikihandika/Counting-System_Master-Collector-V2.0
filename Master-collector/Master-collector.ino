@@ -91,9 +91,6 @@ bool stringComplete = false;                        // whether the string is com
 bool prefix_A = false;bool prefix_B = false;
 bool syncLastData_S1 = false;bool syncLastData_S2 = false;
 
-/* variable check boolean to identify subscribe */
-bool trig_publishFlagRestart = false;
-
 String time;
 int flagreply = 0;int statusReply = 0;int statusTime = 0;int serverLastMAC01 = 0;int serverLastMAC02 = 0;
 int QoS_0 = 0;int QoS_1 = 1;int QoS_2 = 2;
@@ -178,6 +175,7 @@ void reconnect(){
   }
 }
 
+
 //==========================================================================================================================================//
 //===================================================|   Procedure publish Flag start  |====================================================//                                         
 //==========================================================================================================================================//
@@ -218,52 +216,6 @@ void publishFlagStart(){
       Serial.println("");
       #endif
       }
-    }
-}
-
-
-//==========================================================================================================================================//
-//==================================================|   Procedure publish Flag Restart  |===================================================//                                         
-//==========================================================================================================================================//
-/* publish data sensor 1 */
-void publishFlagRestart(){
-  #ifdef DEBUGV
-  Serial.println("Publish FlagRestart !!!");
-  #endif
-
-/* ArduinoJson create jsonDoc 
-Must be know its have a different function 
-if you use library ArduinoJson ver 5.x.x or 6.x.x
--- in this program using library ArduinoJson ver 5.x.x
-*/
-const size_t BUFFER_SIZE = JSON_OBJECT_SIZE(2);                                         // define number of key-value pairs in the object pointed by the JsonObject.
-
- DynamicJsonBuffer jsonBuffer(BUFFER_SIZE);                                             // memory management jsonBuffer which is allocated on the heap and grows automatically (dynamic memory)
-  JsonObject& JSONencoder = jsonBuffer.createObject();                                  // createObject function jsonBuffer
-
-  /* Encode object in jsonBuffer */
-  JSONencoder["id_controller"] = "CTR01";                                               // key/object its = id_controller
-  JSONencoder["flagrestart"] = 1;                                                       // key/object its = limit
-
-  char JSONmessageBuffer[100];                                                          // array of char JSONmessageBuffer is 100
-  JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));                    // “minified” a JSON document
-
-  #ifdef DEBUGV
-  Serial.println("Sending message to MQTT topic...");                                   // line debugging
-  Serial.println(JSONmessageBuffer);                                                    // line debugging
-  #endif
-
-  client.publish("PSI/countingbenang/datacollector/startcontroller", JSONmessageBuffer);// publish payload to broker <=> client.publish(topic, payload);
-
-  /* error correction */
-  if(client.publish("PSI/countingbenang/datacollector/startcontroller", JSONmessageBuffer) == true){
-    #ifdef DEBUGV
-    Serial.println("SUCCESS PUBLISHING PAYLOAD");
-    #endif
-    } else {
-      #ifdef DEBUGV
-      Serial.println("ERROR PUBLISHING");
-      #endif
     }
 }
 
@@ -673,9 +625,6 @@ void setup(){
     /* reserve 200 bytes for the incomingData*/
     incomingData.reserve(200);
 
-    /* attachInterrupt Here */
-    attachInterrupt(digitalPinToInterrupt(EMG_BUTTON), executeFlagrestart, LOW);
-
     /* actived WDT */
     wdt_enable(WDTO_4S);
 }
@@ -687,10 +636,6 @@ void(* resetFunc) (void) = 0; //declare reset function @ address 0
 //==========================================================================================================================================//
 void loop(){
   syncDataTimeRTC();reconnect();sendCommand();showData();errorData();
-  if(trig_publishFlagRestart){
-    trig_publishFlagRestart = false;
-    publishFlagRestart();
-  }
   client.loop();   // Use to loop callback function
   wdt_reset();
   if(flgStrErr == 12){
@@ -726,15 +671,5 @@ void serialEvent3(){
         }
       }
     }
-  }
-}
-
-
-//==========================================================================================================================================//
-//=========================================================|   Digital ISR    |=============================================================//                                         
-//==========================================================================================================================================//
-void executeFlagrestart(){
-  if(digitalRead(EMG_BUTTON) == LOW){
-    trig_publishFlagRestart = true;
   }
 }
